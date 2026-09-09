@@ -26,6 +26,15 @@ export interface CyclicEvent extends EventBase {
   every: number;
   /** offset inside the period */
   at: number;
+  /**
+   * Offset on the Dire side, when the mirrored map moves it. The towers are
+   * not the same distance apart on both halves, so a pull that works at :44
+   * for Radiant needs :45 for Dire.
+   */
+  atDire?: number;
+  /** takes its offset from this setting instead of `at`, because there is no
+   *  single correct second for it */
+  atSetting?: 'stackSecond';
   /** [from, to] clock range in which the event is relevant */
   window: [number, number];
 }
@@ -50,20 +59,33 @@ export const EVENTS: ScheduledEvent[] = [
     // Ten seconds of lead is what it takes to leave the lane and reach the
     // camp; five never was. The window opens at 1:00 because the camps are
     // empty until then — the first creeps spawn at 1:00, so the first camp
-    // that can be pulled out of its box is the 2:00 one, at 1:53.
-    id: 'stack', label: 'STACK', kind: 'cyclic', every: 60, at: 53, lead: 10,
-    window: [60, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
+    // that can be pulled out of its box is the 2:00 one.
+    // The second itself is a setting: guides put it anywhere from 52 to 56
+    // depending on camp size and on whether the camp is already stacked, and
+    // the app cannot know which camp you are walking to.
+    id: 'stack', label: 'STACK', kind: 'cyclic', every: 60, at: 53, atSetting: 'stackSecond',
+    lead: 10, window: [60, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
     text: {
       'pt-BR': { dry: 'Stack', verbose: 'Stack em dez' },
       en: { dry: 'Stack', verbose: 'Stack in ten' },
     },
   },
   {
-    id: 'pull', label: 'PULL', kind: 'cyclic', every: 60, at: 15, lead: 6,
+    id: 'pull', label: 'PULL', kind: 'cyclic', every: 60, at: 14, lead: 6,
     window: [60, 900], roles: SUPPORTS, priority: 2, clip: 'pull',
     text: {
       'pt-BR': { dry: 'Pull', verbose: 'Pull em seis' },
       en: { dry: 'Pull', verbose: 'Pull in six' },
+    },
+  },
+  {
+    // The second pull of the minute, and the one place the mirrored map bites:
+    // the gap between the towers differs, so Dire pulls a second later.
+    id: 'pull_second', label: 'SECOND PULL', kind: 'cyclic', every: 60, at: 44, atDire: 45,
+    lead: 6, window: [60, 900], roles: SUPPORTS, priority: 2, clip: 'pull',
+    text: {
+      'pt-BR': { dry: 'Pull', verbose: 'Segundo pull em seis' },
+      en: { dry: 'Pull', verbose: 'Second pull in six' },
     },
   },
   {

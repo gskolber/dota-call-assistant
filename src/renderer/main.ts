@@ -109,6 +109,8 @@ function flags(): EngineFlags {
   const s = settings();
   return {
     role: s.role,
+    team: state.match.team,
+    stackSecond: s.stackSecond,
     budget: s.budget,
     muted: s.muted,
     dead: state.deadOverride || (state.match.inMatch && !state.match.alive),

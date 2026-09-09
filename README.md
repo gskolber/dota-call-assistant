@@ -241,8 +241,9 @@ individual events.
 
 | Call | When | Lead |
 | --- | --- | --- |
-| Stack | :53 of every minute, 1:53–30:00 | 10s |
-| Pull | :15 of every minute, 1:00–15:00 | 6s |
+| Stack | your chosen second, 1:53–30:00 | 10s |
+| Pull | :14 of every minute, 1:00–15:00 | 6s |
+| Second pull | :44 Radiant / :45 Dire, 1:00–15:00 | 6s |
 | Bounty | every 3:00 | 10s |
 | Power rune | every 2:00, from 6:00 | 15s |
 | Wisdom | every 7:00 | 20s |
@@ -250,6 +251,15 @@ individual events.
 | Neutral tier 2 / tier 3 | 17:30 / 27:30 | 10s |
 | Tormentor | 20:00 | 30s |
 | Aegis expires / Rosh possible / guaranteed | +5:00 / +8:00 / +11:00 from the mark | 10s |
+
+**The map is mirrored, but it is not symmetric.** The safelane towers are not
+the same distance apart on both halves, so the second pull of the minute lands
+a second later on Dire. The side comes from the match itself, never guessed.
+
+**The stack second is a setting, not a constant.** Guides put it anywhere from
+52 to 56 depending on camp size, and an already-stacked camp needs another
+second or two. The app cannot know which camp you are walking to, so `04 · CALL
+SET` lets you pick. The default is :53.
 
 Four more calls come from **state** rather than the clock: **no buyback**
 (after 20:00, alive, gold below the cost), **no TP** (after 2:00), **ultimate

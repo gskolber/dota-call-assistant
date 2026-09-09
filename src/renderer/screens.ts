@@ -587,6 +587,30 @@ function roleScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
+        h(
+          'div',
+          { style: 'padding:18px;border-bottom:2px solid var(--ink)' },
+          label(t('role.stackSecond')),
+          h(
+            'div.choices',
+            { style: 'margin-top:8px' },
+            [51, 52, 53, 54, 55, 56].map((second) =>
+              h('button.choice.choice--num', {
+                text: String(second),
+                class: settings.stackSecond === second ? 'choice--on' : '',
+                onClick: () => actions.patch({ stackSecond: second }),
+              }),
+            ),
+          ),
+          h('div.hint', { style: 'margin-top:10px', text: t('role.stackHint') }),
+          h('div.label', {
+            style: 'margin-top:16px',
+            text: ctx.match.team
+              ? t('role.side', { team: ctx.match.team.toUpperCase() })
+              : t('role.sideUnknown'),
+          }),
+          h('div.hint', { style: 'margin-top:8px', text: t('role.sideHint') }),
+        ),
         panelHead(t('role.muted')),
         outOfSet.length
           ? outOfSet.map((event) =>

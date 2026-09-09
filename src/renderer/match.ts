@@ -1,6 +1,6 @@
 // Turns raw GSI snapshots into the handful of facts the app actually needs.
 
-import type { GsiAbilities, GsiAbility, GsiItem, GsiPayload } from '../shared/types';
+import type { GsiAbilities, GsiAbility, GsiItem, GsiPayload, Team } from '../shared/types';
 
 export interface MatchState {
   connected: boolean;
@@ -11,6 +11,8 @@ export interface MatchState {
   daytime: boolean;
   gameState: string;
   heroName: string;
+  /** which side you are on; the mirrored map shifts some timings */
+  team: Team | null;
   alive: boolean;
   respawnSeconds: number;
   gold: number;
@@ -41,6 +43,7 @@ export const EMPTY_MATCH: MatchState = {
   daytime: true,
   gameState: '',
   heroName: '',
+  team: null,
   alive: true,
   respawnSeconds: 0,
   gold: 0,
@@ -226,6 +229,8 @@ export class MatchTracker {
       daytime: map?.daytime ?? true,
       gameState: map?.game_state ?? '',
       heroName: (hero?.name ?? '').replace('npc_dota_hero_', ''),
+      team: player?.team_name === 'dire' ? 'dire'
+        : player?.team_name === 'radiant' ? 'radiant' : null,
       alive: hero?.alive ?? true,
       respawnSeconds: hero?.respawn_seconds ?? 0,
       gold: player?.gold ?? 0,

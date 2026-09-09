@@ -10,6 +10,8 @@ import type { RoleId } from '../src/shared/types';
 export function flags(over: Partial<EngineFlags> = {}): EngineFlags {
   return {
     role: 'POS 5',
+    team: 'radiant',
+    stackSecond: 53,
     budget: 99,
     muted: false,
     dead: false,

@@ -11,11 +11,11 @@ test('queue returns upcoming calls in fire-time order', () => {
   assert.deepEqual(
     items.map((i) => [i.id, i.fireAt]),
     [
-      ['pull', 69],
+      ['pull', 68],
+      ['pull_second', 98],
       ['stack', 103],
       ['bounty', 170],
       ['night', 290],
-      ['power_rune', 345],
     ],
   );
 });
@@ -25,28 +25,27 @@ test('queue honours the limit and reports the wait in seconds', () => {
   const items = engine.queue(60, flags(), 2);
 
   assert.equal(items.length, 2);
-  assert.deepEqual(items.map((i) => i.id), ['pull', 'stack']);
-  assert.equal(at(items, 0).fireAt, 69);
-  assert.equal(at(items, 0).inSeconds, 9);
-  assert.equal(at(items, 1).fireAt, 103);
-  assert.equal(at(items, 1).inSeconds, 43);
+  assert.deepEqual(items.map((i) => i.id), ['pull', 'pull_second']);
+  assert.equal(at(items, 0).fireAt, 68);
+  assert.equal(at(items, 0).inSeconds, 8);
+  assert.equal(at(items, 1).fireAt, 98);
+  assert.equal(at(items, 1).inSeconds, 38);
 });
 
 test('a call leaves the queue the second its fire time arrives', () => {
   const engine = new CallEngine();
 
   // one second before: PULL is the head of the queue, firing next second
-  const before = engine.queue(68, flags(), 5);
+  const before = engine.queue(67, flags(), 5);
   assert.equal(at(before, 0).id, 'pull');
-  assert.equal(at(before, 0).fireAt, 69);
+  assert.equal(at(before, 0).fireAt, 68);
   assert.equal(at(before, 0).inSeconds, 1);
 
   // on the fire second itself the queue already shows the *next* pull
-  const atFire = engine.queue(69, flags(), 5);
-  assert.equal(at(atFire, 0).id, 'stack');
-  assert.equal(at(atFire, 0).fireAt, 103);
+  const atFire = engine.queue(68, flags(), 5);
+  assert.equal(at(atFire, 0).id, 'pull_second');
   const nextPull = atFire.find((i) => i.id === 'pull');
-  assert.equal(nextPull?.fireAt, 129);
+  assert.equal(nextPull?.fireAt, 128);
 });
 
 test('an absolute call leaves the queue once it has fired', () => {

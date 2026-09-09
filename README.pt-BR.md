@@ -236,8 +236,9 @@ eventos individuais.
 
 | Call | Quando | Aviso |
 | --- | --- | --- |
-| Stack | :53 de cada minuto, 1:53–30:00 | 10s |
-| Pull | :15 de cada minuto, 1:00–15:00 | 6s |
+| Stack | no segundo que você escolher, 1:53–30:00 | 10s |
+| Pull | :14 de cada minuto, 1:00–15:00 | 6s |
+| Segundo pull | :44 Radiant / :45 Dire, 1:00–15:00 | 6s |
 | Bounty | a cada 3:00 | 10s |
 | Runa de poder | a cada 2:00, a partir de 6:00 | 15s |
 | Wisdom | a cada 7:00 | 20s |
@@ -245,6 +246,15 @@ eventos individuais.
 | Neutros tier 2 / tier 3 | 17:30 / 27:30 | 10s |
 | Tormentor | 20:00 | 30s |
 | Aegis expira / Rosh possível / garantido | +5:00 / +8:00 / +11:00 da marcação | 10s |
+
+**O mapa é espelhado, mas não é simétrico.** As torres da safelane não ficam à
+mesma distância nas duas metades, então o segundo pull do minuto cai um segundo
+depois no Dire. O lado vem da própria partida, nunca é chutado.
+
+**O segundo do stack é configuração, não constante.** Os guias põem entre 52 e
+56 conforme o tamanho do acampamento, e campo já stackado precisa de mais um ou
+dois. O app não tem como saber para qual campo você está andando, então a tela
+`04 · CONJUNTO DE CALLS` deixa escolher. O padrão é :53.
 
 Além dessas, quatro calls saem do **estado**, não do relógio: **sem buyback**
 (depois dos 20:00, vivo, ouro abaixo do custo), **sem TP** (depois dos 2:00),

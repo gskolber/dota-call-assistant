@@ -34,10 +34,10 @@ test('STACK respects its 1:00–30:00 window', () => {
   assert.deepEqual(firesBetween('stack', 1700, 1900), [1723, 1783]);
 });
 
-test('PULL fires 6s before :15 of every minute inside 1:00–15:00', () => {
-  assert.deepEqual(firesBetween('pull', 0, 200), [69, 129, 189]);
+test('PULL fires 6s before :14 of every minute inside 1:00–15:00', () => {
+  assert.deepEqual(firesBetween('pull', 0, 200), [68, 128, 188]);
   // window closes at 900: 14:15 (clock 855) is the last one, spoken at 849
-  assert.deepEqual(firesBetween('pull', 800, 1000), [849]);
+  assert.deepEqual(firesBetween('pull', 800, 1000), [848]);
 });
 
 test('BOUNTY runs every 3:00 and its first call lands before the horn', () => {
@@ -70,7 +70,7 @@ test('PULL is supports-only, so POS 1 never gets it', () => {
   for (const role of ROLES) {
     const fires = firesBetween('pull', 0, 200, role);
     if (role === 'POS 4' || role === 'POS 5') {
-      assert.deepEqual(fires, [69, 129, 189], `${role} should get PULL`);
+      assert.deepEqual(fires, [68, 128, 188], `${role} should get PULL`);
     } else {
       assert.deepEqual(fires, [], `${role} must never get PULL`);
     }

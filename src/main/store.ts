@@ -12,6 +12,7 @@ const DEFAULTS: Omit<Settings, 'gsiToken'> & { gsiToken: string } = {
   verbose: false,
   muted: false,
   budget: 4,
+  stackSecond: 53,
   volume: 0.7,
   voiceLocale: 'pt-BR',
   uiLanguage: 'pt-BR',

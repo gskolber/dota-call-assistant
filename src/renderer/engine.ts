@@ -3,7 +3,7 @@ import {
   eventAppliesToRole, mmss,
   type CallText, type PaletteEntry, type ScheduledEvent,
 } from '../shared/catalog';
-import type { ClipId, Locale, Priority, RoleId } from '../shared/types';
+import type { ClipId, Locale, Priority, RoleId, Team } from '../shared/types';
 
 export type DropReason = 'MUTED' | 'DEAD' | 'FIGHT' | 'BUDGET' | 'DROPPED' | 'PAUSED';
 export type LogState = 'SPOKEN' | DropReason;
@@ -60,6 +60,10 @@ export interface ActiveTimer {
 
 export interface EngineFlags {
   role: RoleId;
+  /** null before a match tells us; Radiant timings are the default */
+  team: Team | null;
+  /** the second of the minute the stack call aims at */
+  stackSecond: number;
   budget: number;
   muted: boolean;
   /** player is dead - either read from GSI or forced from the UI */
@@ -181,11 +185,24 @@ export class CallEngine {
 
   // ── scheduling ──────────────────────────────────────────────────────────
 
-  private occursAt(event: ScheduledEvent, clock: number): boolean {
+  /**
+   * The offset a cyclic event actually uses: a setting where the right second
+   * is a matter of taste, the Dire value where the mirrored map moves it, and
+   * the catalogue value otherwise.
+   */
+  private offsetOf(event: ScheduledEvent, flags: EngineFlags): number {
+    if (event.kind === 'absolute') return event.at;
+    if (event.atSetting) return flags[event.atSetting];
+    if (event.atDire !== undefined && flags.team === 'dire') return event.atDire;
+    return event.at;
+  }
+
+  private occursAt(event: ScheduledEvent, clock: number, flags: EngineFlags): boolean {
     if (event.kind === 'absolute') return clock === event.at;
+    const at = this.offsetOf(event, flags);
     const [from, to] = event.window;
-    if (clock < from || clock > to || clock < event.at) return false;
-    return (clock - event.at) % event.every === 0;
+    if (clock < from || clock > to || clock < at) return false;
+    return (clock - at) % event.every === 0;
   }
 
   private enabled(event: ScheduledEvent, flags: EngineFlags): boolean {
@@ -197,14 +214,14 @@ export class CallEngine {
    * whose fire time is still ahead. Without the lead check a call would linger
    * in the queue for the second after it fired.
    */
-  private nextOccurrence(event: ScheduledEvent, clock: number): number | null {
+  private nextOccurrence(event: ScheduledEvent, clock: number, flags: EngineFlags): number | null {
     if (event.kind === 'absolute') {
       return event.at - event.lead > clock ? event.at : null;
     }
     const [from, to] = event.window;
     const start = Math.max(clock + 1, from);
     for (let t = start; t <= Math.min(to, clock + 1800); t += 1) {
-      if (this.occursAt(event, t) && t - event.lead > clock) return t;
+      if (this.occursAt(event, t, flags) && t - event.lead > clock) return t;
     }
     return null;
   }
@@ -215,7 +232,7 @@ export class CallEngine {
 
     for (const event of EVENTS) {
       if (!this.enabled(event, flags)) continue;
-      const occurrence = this.nextOccurrence(event, clock);
+      const occurrence = this.nextOccurrence(event, clock, flags);
       if (occurrence === null) continue;
       const fireAt = occurrence - event.lead;
       items.push({
@@ -259,7 +276,7 @@ export class CallEngine {
 
     for (const event of EVENTS) {
       if (!this.enabled(event, flags)) continue;
-      if (this.occursAt(event, clock + event.lead)) {
+      if (this.occursAt(event, clock + event.lead, flags)) {
         due.push({
           id: event.id,
           label: event.label,

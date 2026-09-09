@@ -7,6 +7,9 @@ export type Locale = 'pt-BR' | 'en';
 
 export type RoleId = 'POS 1' | 'POS 2' | 'POS 3' | 'POS 4' | 'POS 5';
 
+/** The map is mirrored, so a few timings differ by which side you are on. */
+export type Team = 'radiant' | 'dire';
+
 export type ScreenId = 'live' | 'panel' | 'timers' | 'role' | 'audio' | 'gsi' | 'idle';
 
 /** 1 = chatter, 5 = never drop this one. */
@@ -29,6 +32,12 @@ export interface Settings {
   muted: boolean;
   /** max spoken calls per rolling minute */
   budget: number;
+  /**
+   * Second of the minute the stack call aims at. There is no single right
+   * answer: it runs from about 52 to 56 depending on camp size and on whether
+   * the camp is already stacked, so this is a knob rather than a constant.
+   */
+  stackSecond: number;
   volume: number;
   /** which clip folder is used and which wording is spoken */
   voiceLocale: Locale;

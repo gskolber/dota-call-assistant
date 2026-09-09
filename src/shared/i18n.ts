@@ -114,6 +114,11 @@ const en = {
   'role.muted': 'MUTED FOR THIS ROLE',
   'role.hearsEverything': 'THIS ROLE HEARS EVERYTHING',
   'role.at': 'AT {time}',
+  'role.stackSecond': 'STACK AT SECOND',
+  'role.stackHint': 'There is no single right second. Guides put it between 52 and 56 depending on camp size, and an already-stacked camp needs a second or two more. Set it to whatever camp you actually stack.',
+  'role.side': 'SIDE · {team}',
+  'role.sideUnknown': 'SIDE · UNKNOWN UNTIL A MATCH',
+  'role.sideHint': 'The map is mirrored but not symmetric: the second pull lands a second later on Dire. The side is read from the match, never guessed.',
   'role.note':
     'Click the square on the left to silence a single event. The role set already covers the normal case — nobody configures thirty checkboxes mid-queue.',
 
@@ -364,6 +369,11 @@ const ptBR: Record<MessageKey, string> = {
   'role.muted': 'MUDAS NESTA FUNÇÃO',
   'role.hearsEverything': 'ESTA FUNÇÃO OUVE TUDO',
   'role.at': 'ÀS {time}',
+  'role.stackSecond': 'STACK NO SEGUNDO',
+  'role.stackHint': 'Não existe um segundo certo. Os guias põem entre 52 e 56 conforme o tamanho do acampamento, e um campo já stackado precisa de um ou dois a mais. Ajuste para o campo que você realmente stacka.',
+  'role.side': 'LADO · {team}',
+  'role.sideUnknown': 'LADO · SÓ EM PARTIDA',
+  'role.sideHint': 'O mapa é espelhado mas não é simétrico: o segundo pull cai um segundo depois no Dire. O lado vem da partida, nunca é chutado.',
   'role.note':
     'Clique no quadrado à esquerda para silenciar um evento individual. O conjunto por função já cobre o normal — ninguém configura trinta caixas no meio da fila.',
 

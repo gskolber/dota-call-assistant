@@ -35,9 +35,9 @@ test('the collision is decided by priority, not by catalog order', () => {
 test('spokenInWindow counts only the last 60 seconds', () => {
   const engine = new CallEngine();
   engine.tick(103, flags(), state()); // STACK
-  engine.tick(129, flags(), state()); // PULL
+  engine.tick(128, flags(), state()); // PULL
 
-  assert.equal(engine.spokenInWindow(129), 2);
+  assert.equal(engine.spokenInWindow(128), 2);
   assert.equal(engine.spokenInWindow(162), 2);
   assert.equal(engine.spokenInWindow(163), 1); // the 103 call is exactly 60s old
   assert.equal(engine.spokenInWindow(189), 0);
@@ -47,7 +47,7 @@ test('the per-minute budget drops low-priority calls once it is exceeded', () =>
   const engine = new CallEngine();
   const f = flags({ budget: 1 });
 
-  assert.deepEqual(ids(engine.tick(129, f, state())), ['pull']); // p2, budget free
+  assert.deepEqual(ids(engine.tick(128, f, state())), ['pull']); // p2, budget free
   assert.deepEqual(ids(engine.tick(163, f, state())), []); // STACK p2, over budget
   assert.deepEqual(ids(engine.tick(170, f, state())), []); // BOUNTY p3, over budget
 
@@ -57,7 +57,7 @@ test('the per-minute budget drops low-priority calls once it is exceeded', () =>
   );
 
   // once the window has rolled past the spoken call the budget frees up again
-  assert.deepEqual(ids(engine.tick(189, f, state())), ['pull']);
+  assert.deepEqual(ids(engine.tick(188, f, state())), ['pull']);
 });
 
 test('priority 4 and up ignore the budget', () => {
@@ -76,8 +76,8 @@ test('a call dropped by the budget does not consume budget itself', () => {
   const engine = new CallEngine();
   const f = flags({ budget: 1 });
 
-  engine.tick(129, f, state()); // PULL spoken
-  assert.equal(engine.spokenInWindow(129), 1);
+  engine.tick(128, f, state()); // PULL spoken
+  assert.equal(engine.spokenInWindow(128), 1);
 
   engine.tick(168, f, state()); // STACK dropped by the budget
   assert.equal(engine.spokenInWindow(168), 1);
