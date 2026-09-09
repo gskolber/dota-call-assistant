@@ -932,9 +932,21 @@ function gsiScreen(ctx: Ctx): HTMLElement {
             'div',
             {},
             h('div.label', {
-              style: 'margin-bottom:8px',
-              text: t(gsi?.cfgInstalled ? 'gsi.step1Written' : 'gsi.step1Missing'),
+              style: `margin-bottom:8px${gsi?.cfgOutdated ? ';color:var(--alert)' : ''}`,
+              text: t(
+                gsi?.cfgOutdated
+                  ? 'gsi.step1Outdated'
+                  : gsi?.cfgInstalled
+                    ? 'gsi.step1Written'
+                    : 'gsi.step1Missing',
+              ),
             }),
+            gsi?.cfgOutdated
+              ? h('div.hint', {
+                  style: 'margin-bottom:8px;color:var(--alert)',
+                  text: t('gsi.outdatedHint'),
+                })
+              : null,
             h('div.path', {
               text: gsi?.cfgDir
                 ? `${gsi.cfgDir}\\gamestate_integration_callassistant.cfg`

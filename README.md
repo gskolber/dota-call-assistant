@@ -303,5 +303,6 @@ The renderer uses no framework: plain DOM, rebuilt every tick.
 - The overlay does not show with Dota in exclusive fullscreen. Use windowed or
   borderless, or just leave it off — the app is built to be heard, not looked
   at, during a match.
-- Ultimate and item cooldowns need `abilities` in the GSI config. If you set
-  yours up before this version, hit **WRITE CONFIG** again and restart Dota.
+- Ultimate and item cooldowns need `abilities` in the GSI config. A config
+  written by an older build is missing it, and the GSI screen now says so —
+  press **REWRITE** there and restart Dota.

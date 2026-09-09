@@ -296,6 +296,6 @@ O renderer não usa framework: DOM direto, reconstruído a cada tick.
 - O overlay não aparece com o Dota em tela cheia exclusiva. Use janela ou
   borderless, ou simplesmente deixe desligado: o app foi feito para ser
   ouvido, não olhado, durante a partida.
-- Cooldown de ultimate e item exige `abilities` na config da GSI. Se você
-  configurou antes desta versão, clique em **ESCREVER CONFIG** de novo e reinicie
-  o Dota.
+- Cooldown de ultimate e item exige `abilities` na config da GSI. Config
+  escrita por versão antiga não tem isso, e a tela de GSI agora avisa — clique
+  em **REESCREVER** por lá e reinicie o Dota.

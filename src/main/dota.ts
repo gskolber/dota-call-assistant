@@ -125,3 +125,19 @@ export function isInstalled(dir: string | null): boolean {
   const target = normaliseTarget(dir);
   return !!target && fs.existsSync(path.join(target, CFG_NAME));
 }
+
+/**
+ * Whether the config on disk still matches what this version would write.
+ * A config written by an older build can be missing whole data blocks, and
+ * the calls that depend on them then never fire — silently, which is the
+ * worst way for it to fail.
+ */
+export function isCurrent(dir: string | null, token: string, port: number): boolean {
+  const target = normaliseTarget(dir);
+  if (!target) return false;
+  try {
+    return fs.readFileSync(path.join(target, CFG_NAME), 'utf8') === cfgBody(token, port);
+  } catch {
+    return false;
+  }
+}

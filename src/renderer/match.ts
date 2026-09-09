@@ -65,13 +65,23 @@ const PLAYING_STATES = new Set([
 ]);
 
 /** Items whose downtime changes what the team can do; the rest is noise. */
+/**
+ * Items whose active is worth a call when it comes back. The first list was
+ * support-only, so a carry heard nothing all game: Manta and Satanic are the
+ * cooldowns an Anti-Mage actually waits on. Passive items are left out - there
+ * is nothing to be told about a Battle Fury.
+ */
 const WATCHED_ITEMS = [
-  'item_black_king_bar',
-  'item_blink',
-  'item_glimmer_cape',
-  'item_force_staff',
-  'item_ghost',
-  'item_pipe',
+  // escape and survival
+  'item_blink', 'item_black_king_bar', 'item_manta', 'item_satanic',
+  'item_ghost', 'item_glimmer_cape', 'item_cyclone', 'item_wind_waker',
+  // initiation and control
+  'item_sheepstick', 'item_orchid', 'item_bloodthorn', 'item_rod_of_atos',
+  'item_gungir', 'item_abyssal_blade', 'item_nullifier',
+  // team utility
+  'item_force_staff', 'item_pipe', 'item_crimson_guard', 'item_lotus_orb',
+  'item_solar_crest', 'item_shivas_guard', 'item_spirit_vessel',
+  'item_refresher', 'item_aeon_disk',
 ];
 
 /**

@@ -102,6 +102,8 @@ export interface GsiStatus {
   dotaDirs?: string[];
   cfgDir?: string | null;
   cfgInstalled?: boolean;
+  /** the file exists but an older build wrote it, so blocks may be missing */
+  cfgOutdated?: boolean;
 }
 
 // ── Dota 2 Game State Integration payload ────────────────────────────────

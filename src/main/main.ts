@@ -237,6 +237,8 @@ function wireIpc(): void {
       dotaDirs,
       cfgDir: dota.normaliseTarget(target),
       cfgInstalled: dota.isInstalled(target),
+      cfgOutdated: dota.isInstalled(target)
+        && !dota.isCurrent(target, settings.gsiToken, PORT),
     };
   });
 
