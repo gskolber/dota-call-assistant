@@ -1,231 +1,240 @@
 # Call Assistant
 
-Assistente de calls por voz para Dota 2, em Electron, para Windows.
+[Português](README.pt-BR.md) · **English**
 
-Lê o relógio da partida pela **Game State Integration** oficial da Valve e fala
-os timings da sua função — stack, pull, runas, dia/noite, neutros, Tormentor,
-cadeia do Roshan — **com a sua própria voz**, gravada por você dentro do app.
+A voice call assistant for Dota 2. Electron, Windows.
 
-Nada sai da máquina: sem conta, sem telemetria, sem rede. Os atalhos só
-escutam o teclado, nunca enviam nada para o jogo.
+It reads the match clock through Valve's official **Game State Integration**
+and speaks the timings for your role — stacks, pulls, runes, day/night,
+neutrals, Tormentor, the Roshan chain — **in your own voice**, recorded by you
+inside the app.
+
+Nothing leaves the machine: no account, no telemetry, no network. The hotkeys
+only listen to your keyboard; nothing is ever sent to the game.
 
 ---
 
-## Requisitos
+## Requirements
 
-- Windows 10 ou 11
-- [Node.js LTS](https://nodejs.org) (só para rodar/compilar; o instalador final não precisa)
-- Dota 2 instalado via Steam
+- Windows 10 or 11
+- [Node.js LTS](https://nodejs.org) (to run or build it; the installer does not need it)
+- Dota 2 installed through Steam
 
-## Rodar
+## Run
 
 ```bash
 npm install
 npm start
 ```
 
-## Gerar o instalador
+## Build the installer
 
 ```bash
 npm run dist
 ```
 
-Sai em `release/`: um instalador NSIS e um `.exe` portátil, ambos x64.
+Output lands in `release/`: an NSIS installer and a portable `.exe`, both x64.
 
-Rode **no Windows**. A partir do Linux/WSL o `electron-builder` empacota o app
-(`release/win-unpacked/` já fica utilizável), mas falha na etapa final, que
-grava ícone e metadados no `.exe` via `rcedit` — isso exige Wine. No Windows
-não tem esse passo intermediário.
+Run it **on Windows**. From Linux or WSL, `electron-builder` packages the app
+fine (`release/win-unpacked/` is already usable) but fails on the last step,
+where `rcedit` stamps the icon and metadata into the `.exe` — that needs Wine.
+On Windows there is no such intermediate step.
 
-Outros comandos:
+Other commands:
 
-| Comando | O que faz |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | Roda com o DevTools aberto |
-| `npm run watch` | Recompila a cada alteração (rode `npx electron .` em outro terminal) |
-| `npm run typecheck` | `tsc --noEmit` no processo principal e no renderer |
-| `npm test` | testes do engine de calls (sem build, sem dependência) |
-| `npm run pack` | Empacota sem gerar instalador |
+| `npm run dev` | Runs with DevTools open |
+| `npm run watch` | Rebuilds on change (run `npx electron .` in another terminal) |
+| `npm run typecheck` | `tsc --noEmit` over the main process and the renderer |
+| `npm test` | Call engine tests (no build step, no dependency) |
+| `npm run pack` | Packages without producing an installer |
 
 ---
 
-## Idiomas
+## Languages
 
-Duas configurações separadas, na tela `05 · ÁUDIO`:
+Two separate settings, on the `05 · AUDIO` screen:
 
-- **Voz** — de qual pasta saem os clipes e qual texto é falado (`pt-BR`, `en`)
-- **Interface** — o idioma da tela (`pt-BR`, `en`)
+- **Voice** — which clip folder is used and which wording is spoken (`pt-BR`, `en`)
+- **Interface** — the language of the UI (`pt-BR`, `en`)
 
-São independentes de propósito: dá para ter a interface em inglês com as calls
-em português. No primeiro boot o app detecta o idioma do sistema.
+They are independent on purpose: wanting the interface in English while the
+calls come out in Portuguese is a normal thing to want. On first launch the app
+follows your system language.
 
-### Traduzir para outro idioma
+### Adding a language
 
-Tudo vive em [`src/shared/i18n.ts`](src/shared/i18n.ts). O objeto `en` é a
-fonte da verdade dos tipos: acrescente o novo idioma em `UiLanguage` e em
-`MESSAGES`, e o `tsc` aponta uma a uma toda chave que faltar. Nenhuma string
-de interface fica espalhada pelo código.
+Everything lives in [`src/shared/i18n.ts`](src/shared/i18n.ts). The `en` object
+is the source of truth for the types: add your language to `UiLanguage` and to
+`MESSAGES`, and `tsc` will name every key you are still missing, one by one. No
+interface string is scattered through the code.
 
-Para uma **voz** nova, o trabalho é em `src/shared/catalog.ts`: cada evento
-carrega o próprio `text` com as versões curta e longa por locale.
-
----
-
-## Ligar no Dota (tela `06 · GSI SETUP`)
-
-1. **WRITE CONFIG** — o app acha a pasta do Dota pelo registro do Steam e
-   escreve `gamestate_integration_callassistant.cfg`. Se não achar, use
-   **CHOOSE FOLDER** e aponte para `.../steamapps/common/dota 2 beta`.
-2. **Adicione `-gamestateintegration`** nas opções de inicialização do Dota 2
-   no Steam. O botão **COPY** copia pra você — o app não tem como fazer isso
-   sozinho, o Steam não expõe isso.
-3. **Reinicie o Dota.** Ele só lê os arquivos de GSI ao abrir.
-
-A tela mostra o payload cru chegando, então dá pra ver na hora se funcionou.
+A new **voice** is a different job, in `src/shared/catalog.ts`: each event
+carries its own `text` with a short and a long form per locale.
 
 ---
 
-## Gravar as suas calls (tela `05 · AUDIO`)
+## Connecting to Dota (the `06 · GSI SETUP` screen)
 
-Cada call tem um clipe. Onde não existe gravação, o app usa a voz do Windows
-(TTS) como reserva — dá pra usar sem gravar nada.
+1. **WRITE CONFIG** — the app finds your Dota folder through the Steam registry
+   and writes `gamestate_integration_callassistant.cfg`. If it cannot find it,
+   use **CHOOSE FOLDER** and point at `.../steamapps/common/dota 2 beta`.
+2. **Add `-gamestateintegration`** to Dota 2's launch options in Steam. The
+   **COPY** button puts it on your clipboard — the app cannot do this for you,
+   Steam exposes no way to.
+3. **Restart Dota.** It only reads GSI files at startup.
 
-- **●** ao lado de uma call abre o gravador com a frase na tela.
-- **GRAVAR FALTANTES** percorre em fila tudo que ainda não tem clipe.
-- No gravador: `espaço` grava e para, `enter` salva, `esc` fecha.
+The screen shows the raw payload arriving, so you can tell immediately whether
+it worked.
 
-Cada take é cortado no silêncio das pontas e normalizado antes de salvar, então
-a call sai no instante em que dispara e todas ficam no mesmo volume.
+---
 
-Os clipes ficam em WAV mono, por locale:
+## Recording your own calls (the `05 · AUDIO` screen)
+
+Every call has a clip. Where no recording exists, the app falls back to the
+Windows voice (TTS) — so it is usable without recording anything.
+
+- **●** next to a call opens the recorder with the line on screen.
+- **RECORD MISSING** walks a queue of everything that has no clip yet.
+- In the recorder: `space` records and stops, `enter` saves, `esc` closes.
+
+Each take is trimmed at the silence on both ends and peak-normalised before it
+is saved, so the call lands the instant it fires and every clip sits at the
+same volume.
+
+Clips are mono WAV, one folder per locale:
 
 ```
 %APPDATA%\Call Assistant\recordings\pt-BR\stack.wav
 ```
 
-O botão **PASTA** abre esse diretório. Dá pra trocar os arquivos na mão, desde
-que mantenha o nome (`<id>.wav`).
+The **FOLDER** button opens that directory. You can swap the files by hand, as
+long as you keep the name (`<id>.wav`).
 
 ---
 
-## Overlay, bandeja e início automático
+## Overlay, tray and start with Windows
 
-Tudo em `05 · ÁUDIO`, tudo **desligado por padrão**.
+All on `05 · AUDIO`, all **off by default**.
 
-O **overlay** é uma faixa de 320×64 no topo da tela com a próxima call e o
-tempo. Ele atravessa o clique, não entra no Alt+Tab e não rouba foco — a ideia
-é que você esqueça que ele existe. Só aparece com o Dota em janela ou
-borderless; em tela cheia exclusiva o Windows não deixa nada por cima.
+The **overlay** is a 320×64 strip at the top of the screen showing the next
+call and its countdown. It is click-through, stays out of Alt+Tab and never
+takes focus — the point is that you forget it is there. It only shows up with
+Dota in windowed or borderless mode; in exclusive fullscreen Windows lets
+nothing sit on top.
 
-Fechar a janela manda o app para a **bandeja**, de onde dá para silenciar,
-ligar o overlay e sair de verdade. **Iniciar com o Windows** sobe o app já
-recolhido na bandeja, sem janela na sua cara.
-
----
-
-## Pacote de voz
-
-`05 · ÁUDIO` → **EXPORTAR** gera um `.zip` com as suas gravações; **IMPORTAR**
-lê um. Serve para levar a sua voz para outra máquina — ou para alguém baixar a
-sua e usar no lugar da voz do Windows.
-
-O leitor trata o arquivo como hostil: valida CRC e tamanho de cada entrada,
-recusa nome com caminho (`../`, `/`, subpasta), ignora clipe desconhecido e
-corta entrada acima de 8 MB. Um `.zip` da internet não é confiável.
+Closing the window sends the app to the **tray**, where you can mute, toggle
+the overlay and actually quit. **Start with Windows** brings it up already
+tucked into the tray, with no window in your face.
 
 ---
 
-## Atalhos globais
+## Voice packs
 
-Funcionam com o Dota em foco. Remapeáveis em `05 · AUDIO`.
+`05 · AUDIO` → **EXPORT** writes a `.zip` of your recordings; **IMPORT** reads
+one. Use it to carry your voice to another machine — or to let someone else
+download yours and use it instead of the Windows voice.
 
-| Padrão | Ação |
+The reader treats the file as hostile: it verifies the CRC and declared size of
+every entry, rejects any name carrying a path (`../`, `/`, a subfolder), skips
+unknown clip ids, and caps entries at 8 MB. A `.zip` off the internet is not to
+be trusted.
+
+---
+
+## Global hotkeys
+
+They work with Dota focused. Remappable on `05 · AUDIO`.
+
+| Default | Action |
 | --- | --- |
-| `F9` | Muta / desmuta tudo |
-| `num1` | Marca o Roshan (dispara aegis → possível → garantido) |
-| `num0` | Paleta rápida: duas letras e some sozinha |
+| `F9` | Mute / unmute everything |
+| `num1` | Mark Roshan (unrolls aegis → possible → guaranteed) |
+| `num0` | Quick palette: two letters, dismisses itself |
 
-Paleta: `AE` aegis inimigo · `GL` glyph inimigo · `BB` buyback inimigo ·
-`SM` smoke avistado.
+Palette: `AE` enemy aegis · `GL` enemy glyph · `BB` enemy buyback ·
+`SM` smoke spotted.
 
 ---
 
-## Como o app decide o que falar
+## How the app decides what to say
 
-Uma call por segundo, no máximo. Quando duas caem juntas, a de maior
-prioridade fala e a outra vira `DROPPED` no log — o log mostra tudo que foi
-considerado, falado ou não, então dá pra entender o silêncio.
+One call per second, at most. When two land together the higher priority speaks
+and the other is logged as `DROPPED` — the log shows everything that was
+considered, spoken or not, so the silence is explainable.
 
-O que cala a call, em ordem:
+What silences a call, in order:
 
-| Estado | Efeito |
+| State | Effect |
 | --- | --- |
-| Mute global (`F9`) | cala tudo |
-| Jogo pausado | cala tudo |
-| Você morto | cala tudo, menos a cadeia do Roshan |
-| **FIGHT** ligado | só prioridade 5 |
-| Orçamento por minuto estourado | só prioridade 4+ |
+| Global mute (`F9`) | silences everything |
+| Game paused | silences everything |
+| You are dead | silences everything except the Roshan chain |
+| **FIGHT** toggled on | priority 5 only |
+| Per-minute budget spent | priority 4+ only |
 
-O orçamento (2 a 8 calls por minuto) é o que evita virar rádio. Padrão: 4.
+The budget (2 to 8 calls per minute) is what keeps it from turning into talk
+radio. Default: 4.
 
-A tela `04 · CALL SET` mostra o conjunto da sua função e deixa silenciar
-eventos individuais.
+The `04 · CALL SET` screen shows the set for your role and lets you silence
+individual events.
 
 ### Timings (patch 7.41e)
 
-| Call | Quando | Aviso |
+| Call | When | Lead |
 | --- | --- | --- |
-| Stack | :53 de cada minuto, 1:00–30:00 | 5s |
-| Pull | :15 de cada minuto, 1:00–15:00 | 6s |
-| Bounty | a cada 3:00 | 10s |
-| Runa de poder | a cada 2:00, a partir de 6:00 | 15s |
-| Wisdom | a cada 7:00 | 20s |
-| Noite / Dia | 5:00 e 10:00, alternando | 10s |
-| Neutros tier 2 / tier 3 | 17:30 / 27:30 | 10s |
+| Stack | :53 of every minute, 1:00–30:00 | 5s |
+| Pull | :15 of every minute, 1:00–15:00 | 6s |
+| Bounty | every 3:00 | 10s |
+| Power rune | every 2:00, from 6:00 | 15s |
+| Wisdom | every 7:00 | 20s |
+| Night / Day | 5:00 and 10:00, alternating | 10s |
+| Neutral tier 2 / tier 3 | 17:30 / 27:30 | 10s |
 | Tormentor | 20:00 | 30s |
-| Aegis expira / Rosh possível / garantido | +5:00 / +8:00 / +11:00 da marcação | 10s |
+| Aegis expires / Rosh possible / guaranteed | +5:00 / +8:00 / +11:00 from the mark | 10s |
 
-Além dessas, quatro calls saem do **estado**, não do relógio: **sem buyback**
-(depois dos 20:00, vivo, ouro abaixo do custo), **sem TP** (depois dos 2:00),
-**ultimate pronta** e **item pronto**. As duas últimas falam só na transição
-de cooldown para pronto, e só se a espera valeu a pena — 30s para a ultimate,
-12s para os itens, senão blink e force staff nunca abririam a boca.
-
----
-
-## Sem o Dota aberto
-
-O painel **SIMULATION** na lateral roda um relógio falso: `PLAY` corre em tempo
-real, `+30s` pula. Serve para conferir as calls e testar as gravações sem
-entrar em partida.
+Four more calls come from **state** rather than the clock: **no buyback**
+(after 20:00, alive, gold below the cost), **no TP** (after 2:00), **ultimate
+ready** and **item ready**. The last two speak only on the cooldown-to-ready
+transition, and only when the wait was worth mentioning — 30s for the
+ultimate, 12s for items, otherwise blink and force staff would never get a
+word in.
 
 ---
 
-## Estrutura
+## Without Dota running
+
+The **SIMULATION** panel in the sidebar runs a fake clock: `PLAY` moves in real
+time, `+30s` skips ahead. Good for checking the calls and testing your
+recordings without queueing for a match.
+
+---
+
+## Layout
 
 ```
 src/
-  shared/      catálogo de eventos e clipes, textos da interface, tipos do IPC
-  main/        processo principal: servidor GSI, atalhos, config do Dota, arquivos
-  preload/     ponte de IPC (contextIsolation ligado)
-  renderer/    engine de calls, áudio, gravador, overlay e as 7 telas
-tests/         testes do engine, em node:test puro
-build.mjs      esbuild: bundles + estáticos
+  shared/      event and clip catalogue, interface strings, IPC types
+  main/        main process: GSI server, hotkeys, Dota config, files
+  preload/     IPC bridge (contextIsolation on)
+  renderer/    call engine, audio, recorder, overlay and the 7 screens
+tests/         engine tests, plain node:test
+build.mjs      esbuild: bundles + static files
 ```
 
-O renderer não usa framework: DOM direto, reconstruído a cada tick.
+The renderer uses no framework: plain DOM, rebuilt every tick.
 
 ---
 
-## Limitações conhecidas
+## Known limitations
 
-- A GSI não informa estoque de wards na loja nem posição dos inimigos. O painel
-  de disciplina só enxerga o que está no seu inventário.
-- Roshan e os timers da paleta são manuais por definição: o jogo não conta isso
-  para ninguém.
-- O overlay não aparece com o Dota em tela cheia exclusiva. Use janela ou
-  borderless, ou simplesmente deixe desligado: o app foi feito para ser
-  ouvido, não olhado, durante a partida.
-- Cooldown de ultimate e item exige `abilities` na config da GSI. Se você
-  configurou antes desta versão, clique em **WRITE CONFIG** de novo e reinicie
-  o Dota.
+- GSI reports neither your ward stock in the shop nor enemy positions. The
+  discipline panel only sees what is in your inventory.
+- Roshan and the palette timers are manual by definition: the game does not
+  tell anyone about them.
+- The overlay does not show with Dota in exclusive fullscreen. Use windowed or
+  borderless, or just leave it off — the app is built to be heard, not looked
+  at, during a match.
+- Ultimate and item cooldowns need `abilities` in the GSI config. If you set
+  yours up before this version, hit **WRITE CONFIG** again and restart Dota.

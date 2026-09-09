@@ -55,10 +55,16 @@ export function load(): Settings {
   };
   delete (cache as { locale?: unknown }).locale;
 
-  if (!cache.gsiToken) {
-    cache.gsiToken = randomBytes(16).toString('hex');
-    save(cache);
-  }
+  // Persist a migration straight away instead of waiting for the user to
+  // change something: a settings file left in the old shape would silently
+  // lose the language the day the fallback below is removed.
+  const migrated = disk.locale !== undefined
+    || disk.voiceLocale === undefined
+    || disk.uiLanguage === undefined;
+
+  if (!cache.gsiToken) cache.gsiToken = randomBytes(16).toString('hex');
+  if (migrated || !disk.gsiToken) save(cache);
+
   return cache;
 }
 
