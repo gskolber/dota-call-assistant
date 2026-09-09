@@ -56,15 +56,15 @@ export function load(): Settings {
   };
   delete (cache as { locale?: unknown }).locale;
 
-  // Persist a migration straight away instead of waiting for the user to
-  // change something: a settings file left in the old shape would silently
-  // lose the language the day the fallback below is removed.
-  const migrated = disk.locale !== undefined
-    || disk.voiceLocale === undefined
-    || disk.uiLanguage === undefined;
+  // Write the file back whenever its shape is behind the code, rather than
+  // waiting for the user to change something. Checking the key set instead of
+  // naming fields means every setting added later is covered too, and a file
+  // left in the old shape would silently lose the language the day the
+  // `locale` fallback above is removed.
+  const behind = 'locale' in disk || Object.keys(cache).some((key) => !(key in disk));
 
   if (!cache.gsiToken) cache.gsiToken = randomBytes(16).toString('hex');
-  if (migrated || !disk.gsiToken) save(cache);
+  if (behind || !disk.gsiToken) save(cache);
 
   return cache;
 }
