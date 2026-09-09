@@ -2,14 +2,14 @@
 
 **Português** · [English](README.md)
 
-Assistente de calls por voz para Dota 2, em Electron, para Windows.
+### Sem IA. Sem nuvem. Sem latência. Só a call certa na hora certa.
 
-Lê o relógio da partida pela **Game State Integration** oficial da Valve e fala
-os timings da sua função — stack, pull, runas, dia/noite, neutros, Tormentor,
-cadeia do Roshan — **com a sua própria voz**, gravada por você dentro do app.
+Stack, pull, runas, dia/noite, neutros, Tormentor, cadeia do Roshan. Ele lê o
+relógio direto da Game State Integration da Valve e fala a call em voz alta,
+**com a sua voz**, porque quem gravou foi você.
 
-Nada sai da máquina: sem conta, sem telemetria, sem rede. Os atalhos só
-escutam o teclado, nunca enviam nada para o jogo.
+Tudo roda na sua máquina. Sem conta. Sem telemetria. Ele não abre socket para
+nada além do Dota. Os atalhos escutam; nunca digitam.
 
 ![A tela da partida](docs/live-match.png)
 
@@ -17,19 +17,16 @@ escutam o teclado, nunca enviam nada para o jogo.
 
 ## EU SEREI BANIDO???
 
-A resposta honesta primeiro: só a Valve fala pela Valve, e este projeto não vem
-com garantia nenhuma. O que dá para fazer é te contar exatamente no que ele
-encosta, para você julgar sozinho.
+Só a Valve fala pela Valve, e isto não vem com garantia. Aqui está exatamente
+no que ele encosta, para você julgar sozinho.
 
-**Ele lê uma coisa só: o JSON que o próprio Dota manda.** A Game State
-Integration é um recurso **oficial** da Valve, que vem no jogo, é documentado
-por ela e é ligado por uma opção de inicialização que ela mesma fornece —
-`-gamestateintegration`. O Dota publica um retrato da *sua* partida num
-endereço local algumas vezes por segundo. O app escuta em `127.0.0.1:3000` e lê.
-É essa a integração inteira. É o mesmo mecanismo por trás dos overlays de
-transmissão que você vê em qualquer campeonato oficial.
+**Ele lê uma coisa: o JSON que o próprio Dota manda.** A Game State Integration
+vem no jogo, é documentada pela Valve e liga com uma opção de inicialização que
+ela mesma dá. O Dota publica um retrato da sua partida num endereço local
+algumas vezes por segundo. O app escuta em `127.0.0.1:3000`. É a integração
+inteira — o mesmo cano por trás dos overlays de qualquer campeonato oficial.
 
-**O que ele nunca faz**, e que seria de fato passar do ponto:
+**O que ele nunca faz**, que é onde a linha realmente está:
 
 - Não lê nem escreve na memória do jogo, e não se acopla, injeta nem engancha
   no processo do Dota.
@@ -41,31 +38,27 @@ transmissão que você vê em qualquer campeonato oficial.
 - Não lê chat, não lê os outros jogadores, não enxerga nada sob a névoa — nada
   que você já não veja na sua própria tela.
 
-**Tudo o que ele fala, você poderia falar sozinho** com um cronômetro. O stack
-é :53 tendo ou não alguém te lembrando. O app é um timer que fala; ele não te
-dá informação que o jogo estava escondendo.
-
-Ele também nunca conversa com a rede: sem conta, sem telemetria, sem ping de
-atualização enquanto você joga. O único lugar para onde seus dados vão é o
-`%APPDATA%`, na sua máquina.
+**Tudo o que ele fala, você poderia falar com um cronômetro.** O stack é :53
+tendo ou não alguém te lembrando. É um timer que fala. Ele não te dá nada que
+o jogo estava escondendo.
 
 ---
 
 ## Baixar (sem terminal)
 
-Se você só quer usar e nunca encostar em código:
+Sem terminal, sem Node, sem compilar nada.
 
-1. Vá na página de [**Releases**](../../releases).
-2. Baixe o `CallAssistant-<versão>-x64.exe` — o instalador — ou a versão
-   portátil, se preferir não instalar nada.
-3. Execute. O SmartScreen do Windows vai avisar que o autor é desconhecido,
-   porque o build não é assinado (certificado custa dinheiro que este projeto
-   não tem). Clique em **Mais informações** → **Executar assim mesmo**, ou
-   confira você mesmo: toda release é gerada pelo GitHub Actions a partir do
-   código deste repositório, e o log é público.
-4. Abra o app, vá em `06 · CONFIGURAR GSI` e siga os três passos de lá.
+1. Abra [**Releases**](../../releases).
+2. Pegue o `CallAssistant-Setup-<versão>-x64.exe`, ou o Portable se preferir
+   não instalar nada.
+3. Execute. O SmartScreen vai dizer que o autor é desconhecido — o build não é
+   assinado, porque certificado custa dinheiro que este projeto não tem.
+   **Mais informações** → **Executar assim mesmo**. Ou confira você mesmo:
+   toda release é gerada pelo GitHub Actions a partir do código daqui, e o log
+   é público.
+4. Abra `06 · CONFIGURAR GSI` e faça os três passos.
 
-Daqui para baixo é para quem quer rodar a partir do código.
+Daqui para baixo é para rodar a partir do código.
 
 ---
 

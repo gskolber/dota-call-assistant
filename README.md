@@ -2,15 +2,14 @@
 
 [Português](README.pt-BR.md) · **English**
 
-A voice call assistant for Dota 2. Electron, Windows.
+### No AI. No cloud. No latency. Just the right call at the right time.
 
-It reads the match clock through Valve's official **Game State Integration**
-and speaks the timings for your role — stacks, pulls, runes, day/night,
-neutrals, Tormentor, the Roshan chain — **in your own voice**, recorded by you
-inside the app.
+Stacks, pulls, runes, day/night, neutrals, Tormentor, the Roshan chain. It
+reads the match clock straight from Valve's Game State Integration and says
+the call out loud, **in your own voice**, because you recorded it.
 
-Nothing leaves the machine: no account, no telemetry, no network. The hotkeys
-only listen to your keyboard; nothing is ever sent to the game.
+Everything runs on your machine. No account. No telemetry. It never opens a
+socket to anything but Dota. The hotkeys listen; they never type.
 
 ![The live match screen](docs/live-match.png)
 
@@ -18,19 +17,16 @@ only listen to your keyboard; nothing is ever sent to the game.
 
 ## Will I get banned?
 
-The honest answer first: nobody but Valve can speak for Valve, and this project
-comes with no warranty. What it can do is tell you exactly what it touches, so
-you can judge for yourself.
+Only Valve speaks for Valve, and this comes with no warranty. Here is exactly
+what it touches, so you can judge it yourself.
 
-**It reads one thing: the JSON that Dota itself sends.** Game State Integration
-is an official Valve feature, shipped with the game, documented by Valve, and
-switched on by a launch option Valve provides — `-gamestateintegration`. Dota
-posts a snapshot of your own match to a local address a few times a second.
-This app listens on `127.0.0.1:3000` and reads it. That is the whole
-integration. It is the same mechanism behind the stream overlays you see on
-every official broadcast.
+**It reads one thing: the JSON Dota itself sends.** Game State Integration
+ships with the game, is documented by Valve, and turns on with a launch option
+Valve gives you. Dota posts a snapshot of your match to a local address a few
+times a second. The app listens on `127.0.0.1:3000`. That is the whole
+integration — the same pipe behind the overlays on every official broadcast.
 
-**What it never does**, and what would actually be over the line:
+**What it never does**, which is where the line actually is:
 
 - It does not read or write the game's memory, and does not attach to,
   inject into or hook the Dota process.
@@ -42,30 +38,26 @@ every official broadcast.
 - It does not read chat, other players, fog of war, or anything you cannot
   already see on your own screen.
 
-**Everything it says, you could have said yourself** with a stopwatch. The
-stack is at :53 whether or not anything reminds you. The app is a timer that
-talks — it does not give you information the game was hiding.
-
-It also never talks to the network: no account, no telemetry, no update ping
-while you play. The one place your data goes is `%APPDATA%`, on your machine.
+**Everything it says, you could say yourself with a stopwatch.** The stack is
+at :53 whether or not something reminds you. It is a timer that talks. It
+gives you nothing the game was hiding.
 
 ---
 
 ## Download (no terminal needed)
 
-If you just want to use it and never touch code:
+No terminal, no Node, nothing to compile.
 
-1. Go to the [**Releases**](../../releases) page.
-2. Download `CallAssistant-<version>-x64.exe` — the installer — or the
-   portable build if you would rather not install anything.
-3. Run it. Windows SmartScreen will warn you that the publisher is unknown,
-   because the build is not code-signed (a certificate costs money this
-   project does not have). Click **More info** → **Run anyway**, or check the
-   build yourself: every release is produced by GitHub Actions from the source
-   in this repository, and the log is public.
-4. Open the app, go to `06 · GSI SETUP` and follow the three steps there.
+1. Open [**Releases**](../../releases).
+2. Grab `CallAssistant-Setup-<version>-x64.exe`, or the Portable one if you
+   would rather not install anything.
+3. Run it. SmartScreen will say the publisher is unknown — the build is not
+   code-signed, because certificates cost money this project does not have.
+   **More info** → **Run anyway**. Or verify it yourself: every release is
+   built by GitHub Actions from the source here, and the log is public.
+4. Open `06 · GSI SETUP` and do the three steps.
 
-Everything below this point is for people who want to run it from source.
+Everything past this point is for running it from source.
 
 ---
 
