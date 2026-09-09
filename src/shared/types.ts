@@ -10,7 +10,7 @@ export type RoleId = 'POS 1' | 'POS 2' | 'POS 3' | 'POS 4' | 'POS 5';
 /** The map is mirrored, so a few timings differ by which side you are on. */
 export type Team = 'radiant' | 'dire';
 
-export type ScreenId = 'live' | 'panel' | 'timers' | 'role' | 'audio' | 'gsi' | 'idle';
+export type ScreenId = 'live' | 'panel' | 'timers' | 'role' | 'audio' | 'gsi' | 'idle' | 'report';
 
 /** 1 = chatter, 5 = never drop this one. */
 export type Priority = 1 | 2 | 3 | 4 | 5;
@@ -212,6 +212,65 @@ export interface GsiPayload {
 
 export type Unsubscribe = () => void;
 
+// ── match memory ─────────────────────────────────────────────────────────
+// Nothing used to survive a match: the log was capped at 40 entries, in
+// memory, and wiped when the next one started. These records are what makes a
+// post-match report possible, and they only hold what GSI actually observes —
+// no inference about whether a camp got stacked, which the game never says.
+
+export interface MatchCallRecord {
+  /** clock second the call was considered at */
+  clock: number;
+  id: string;
+  label: string;
+  priority: number;
+  /** SPOKEN, or the reason it was dropped */
+  state: string;
+}
+
+/** Discipline the game reports directly. No guessing lives in here. */
+export interface MatchDiscipline {
+  /** clock seconds spent alive past 2:00 with no TP in the bag */
+  secondsWithoutTp: number;
+  /** clock seconds spent alive past 20:00 unable to buy back */
+  secondsWithoutBuyback: number;
+  /** times the carried sentry count dropped, i.e. a sentry was placed */
+  sentriesPlaced: number;
+  observersPlaced: number;
+  smokesUsed: number;
+  deaths: number;
+  /** deaths that happened while buyback was out of reach */
+  deathsWithoutBuyback: number;
+  /** highest unspent gold seen, and how long it sat above 1500 */
+  peakGold: number;
+  secondsGoldIdle: number;
+}
+
+export interface MatchRecord {
+  /** map.matchid; "0" in a demo or custom game */
+  matchId: string;
+  startedAt: number;
+  endedAt: number | null;
+  hero: string;
+  team: Team | null;
+  role: RoleId;
+  /** last clock second seen */
+  duration: number;
+  calls: MatchCallRecord[];
+  discipline: MatchDiscipline;
+}
+
+/** Enough to list past matches without reading every record from disk. */
+export interface MatchSummary {
+  matchId: string;
+  startedAt: number;
+  hero: string;
+  role: RoleId;
+  duration: number;
+  spoken: number;
+  dropped: number;
+}
+
 /** Errors crossing the IPC boundary travel as codes; the renderer translates. */
 export type ErrorCode = 'DOTA_NOT_FOUND' | 'WRITE_FAILED';
 
@@ -259,6 +318,13 @@ export interface Api {
     chooseFolder(): Promise<string | null>;
     onPayload(handler: (payload: GsiPayload) => void): Unsubscribe;
     onStatus(handler: (status: GsiStatus) => void): Unsubscribe;
+  };
+  matches: {
+    /** appends what happened this tick; the main process owns the file */
+    record(record: MatchRecord): Promise<void>;
+    list(limit?: number): Promise<MatchSummary[]>;
+    get(matchId: string, startedAt: number): Promise<MatchRecord | null>;
+    reveal(): Promise<string>;
   };
   app: {
     copy(text: string): Promise<boolean>;
