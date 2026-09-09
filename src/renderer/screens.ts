@@ -335,10 +335,12 @@ function panelScreen(ctx: Ctx): HTMLElement {
       bad: !match.hasTp,
     });
     discipline.push({
-      text: match.buybackCost > 0 && match.gold < match.buybackCost
-        ? t('panel.noBuyback', { gold: match.gold, cost: match.buybackCost })
-        : t('panel.buybackOk', { gold: match.gold, cost: match.buybackCost || '—' }),
-      bad: match.buybackCost > 0 && match.gold < match.buybackCost,
+      text: match.buybackCooldown > 0
+        ? t('panel.buybackCooldown', { time: mmss(match.buybackCooldown) })
+        : match.buybackCost > 0 && match.gold < match.buybackCost
+          ? t('panel.noBuyback', { gold: match.gold, cost: match.buybackCost })
+          : t('panel.buybackOk', { gold: match.gold, cost: match.buybackCost || '—' }),
+      bad: match.buybackCooldown > 0 || (match.buybackCost > 0 && match.gold < match.buybackCost),
     });
   }
 

@@ -115,6 +115,8 @@ export interface GsiMap {
   clock_time?: number;
   daytime?: boolean;
   nightstalker_night?: boolean;
+  /** seconds until observer wards can be bought again */
+  ward_purchase_cooldown?: number;
   game_state?: string;
   paused?: boolean;
   win_team?: string;

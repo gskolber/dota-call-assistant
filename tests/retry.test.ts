@@ -129,3 +129,29 @@ describe('a silenced manual timer stays silent', () => {
     );
   });
 });
+
+describe('no buyback is about more than gold', () => {
+  it('calls it while the buyback cooldown runs, however rich you are', () => {
+    const engine = new CallEngine();
+    const rich = state({ gold: 99999, buybackCost: 1200, buybackCooldown: 180 });
+
+    const spoken = secondsSpoken(engine, 'sem_buyback', 1201, 1210, () => ({
+      flags: flags(),
+      state: rich,
+    }));
+
+    assert.deepEqual(spoken, [1201], 'gold you cannot spend is not a buyback');
+  });
+
+  it('stays quiet once the cooldown is over and the gold is there', () => {
+    const engine = new CallEngine();
+    const ready = state({ gold: 99999, buybackCost: 1200, buybackCooldown: 0 });
+
+    const spoken = secondsSpoken(engine, 'sem_buyback', 1201, 1400, () => ({
+      flags: flags(),
+      state: ready,
+    }));
+
+    assert.deepEqual(spoken, []);
+  });
+});

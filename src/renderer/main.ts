@@ -138,6 +138,7 @@ function runEngineTick(clock: number): void {
   const calls = engine.tick(clock, flags(), {
     gold: state.match.gold,
     buybackCost: state.match.buybackCost,
+    buybackCooldown: state.match.buybackCooldown,
     hasTp: state.match.hasTp,
     alive: !flags().dead,
     ultimateReadyAt: state.match.ultimateReadyAt,

@@ -15,6 +15,8 @@ export interface MatchState {
   respawnSeconds: number;
   gold: number;
   buybackCost: number;
+  /** seconds left on the buyback cooldown; gold is not the only way to have none */
+  buybackCooldown: number;
   hasTp: boolean;
   observers: number;
   sentries: number;
@@ -43,6 +45,7 @@ export const EMPTY_MATCH: MatchState = {
   respawnSeconds: 0,
   gold: 0,
   buybackCost: 0,
+  buybackCooldown: 0,
   hasTp: false,
   observers: 0,
   sentries: 0,
@@ -211,6 +214,7 @@ export class MatchTracker {
       respawnSeconds: hero?.respawn_seconds ?? 0,
       gold: player?.gold ?? 0,
       buybackCost: hero?.buyback_cost ?? player?.buyback_cost ?? 0,
+      buybackCooldown: hero?.buyback_cooldown ?? player?.buyback_cooldown ?? 0,
       hasTp: hasItem(items, ['item_tpscroll', 'item_travel_boots', 'item_travel_boots_2']),
       observers,
       sentries,

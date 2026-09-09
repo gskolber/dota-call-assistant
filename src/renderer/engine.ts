@@ -73,6 +73,8 @@ export interface EngineFlags {
 export interface StateInputs {
   gold: number;
   buybackCost: number;
+  /** seconds left on the buyback cooldown */
+  buybackCooldown: number;
   hasTp: boolean;
   alive: boolean;
   /** clock second the ultimate last came back up, from MatchState */
@@ -330,10 +332,11 @@ export class CallEngine {
       out.push({ id: call.id, label: call.label, priority: call.priority, clip: call.clip, text: call.text });
     };
 
-    raise(
-      STATE_CALLS.sem_buyback,
-      clock > 1200 && state.alive && state.buybackCost > 0 && state.gold < state.buybackCost,
-    );
+    // Gold is only half of it: buyback also has a cooldown after being used,
+    // and having the money while the cooldown runs is still having no buyback.
+    const cannotBuyback = state.buybackCooldown > 0
+      || (state.buybackCost > 0 && state.gold < state.buybackCost);
+    raise(STATE_CALLS.sem_buyback, clock > 1200 && state.alive && cannotBuyback);
     raise(
       STATE_CALLS.sem_tp,
       clock > 120 && state.alive && !state.hasTp,

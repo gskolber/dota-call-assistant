@@ -22,7 +22,7 @@ export function flags(over: Partial<EngineFlags> = {}): EngineFlags {
 
 /** State that raises no state call: alive, rich, carrying a TP. */
 export function state(over: Partial<StateInputs> = {}): StateInputs {
-  return { gold: 99999, buybackCost: 1200, hasTp: true, alive: true, ...over };
+  return { gold: 99999, buybackCost: 1200, buybackCooldown: 0, hasTp: true, alive: true, ...over };
 }
 
 export const ROLES: RoleId[] = ['POS 1', 'POS 2', 'POS 3', 'POS 4', 'POS 5'];
