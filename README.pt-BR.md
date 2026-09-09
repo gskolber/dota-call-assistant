@@ -11,6 +11,62 @@ cadeia do Roshan — **com a sua própria voz**, gravada por você dentro do app
 Nada sai da máquina: sem conta, sem telemetria, sem rede. Os atalhos só
 escutam o teclado, nunca enviam nada para o jogo.
 
+![A tela da partida](docs/live-match.png)
+
+---
+
+## EU SEREI BANIDO???
+
+A resposta honesta primeiro: só a Valve fala pela Valve, e este projeto não vem
+com garantia nenhuma. O que dá para fazer é te contar exatamente no que ele
+encosta, para você julgar sozinho.
+
+**Ele lê uma coisa só: o JSON que o próprio Dota manda.** A Game State
+Integration é um recurso **oficial** da Valve, que vem no jogo, é documentado
+por ela e é ligado por uma opção de inicialização que ela mesma fornece —
+`-gamestateintegration`. O Dota publica um retrato da *sua* partida num
+endereço local algumas vezes por segundo. O app escuta em `127.0.0.1:3000` e lê.
+É essa a integração inteira. É o mesmo mecanismo por trás dos overlays de
+transmissão que você vê em qualquer campeonato oficial.
+
+**O que ele nunca faz**, e que seria de fato passar do ponto:
+
+- Não lê nem escreve na memória do jogo, e não se acopla, injeta nem engancha
+  no processo do Dota.
+- Não manda input para o jogo. Os atalhos globais usam o registro de atalho do
+  próprio Windows para **escutar**; nada é digitado, clicado ou scriptado
+  dentro do Dota.
+- Não altera arquivo de jogo. O único arquivo que ele escreve é a config de
+  GSI que o recurso da própria Valve lê, na pasta que a Valve criou para isso.
+- Não lê chat, não lê os outros jogadores, não enxerga nada sob a névoa — nada
+  que você já não veja na sua própria tela.
+
+**Tudo o que ele fala, você poderia falar sozinho** com um cronômetro. O stack
+é :53 tendo ou não alguém te lembrando. O app é um timer que fala; ele não te
+dá informação que o jogo estava escondendo.
+
+Ele também nunca conversa com a rede: sem conta, sem telemetria, sem ping de
+atualização enquanto você joga. O único lugar para onde seus dados vão é o
+`%APPDATA%`, na sua máquina.
+
+---
+
+## Baixar (sem terminal)
+
+Se você só quer usar e nunca encostar em código:
+
+1. Vá na página de [**Releases**](../../releases).
+2. Baixe o `CallAssistant-<versão>-x64.exe` — o instalador — ou a versão
+   portátil, se preferir não instalar nada.
+3. Execute. O SmartScreen do Windows vai avisar que o autor é desconhecido,
+   porque o build não é assinado (certificado custa dinheiro que este projeto
+   não tem). Clique em **Mais informações** → **Executar assim mesmo**, ou
+   confira você mesmo: toda release é gerada pelo GitHub Actions a partir do
+   código deste repositório, e o log é público.
+4. Abra o app, vá em `06 · CONFIGURAR GSI` e siga os três passos de lá.
+
+Daqui para baixo é para quem quer rodar a partir do código.
+
 ---
 
 ## Requisitos
@@ -85,6 +141,8 @@ carrega o próprio `text` com as versões curta e longa por locale.
 
 A tela mostra o payload cru chegando, então dá pra ver na hora se funcionou.
 
+![A tela de configuração da GSI](docs/gsi-setup.png)
+
 ---
 
 ## Gravar as suas calls (tela `05 · ÁUDIO`)
@@ -108,6 +166,8 @@ Os clipes ficam em WAV mono, por locale:
 O botão **PASTA** abre esse diretório. Dá pra trocar os arquivos na mão, desde
 que mantenha o nome (`<id>.wav`).
 
+![A tela de áudio](docs/audio.png)
+
 ---
 
 ## Overlay, bandeja e início automático
@@ -118,6 +178,12 @@ O **overlay** é uma faixa de 320×64 no topo da tela com a próxima call e o
 tempo. Ele atravessa o clique, não entra no Alt+Tab e não rouba foco — a ideia
 é que você esqueça que ele existe. Só aparece com o Dota em janela ou
 borderless; em tela cheia exclusiva o Windows não deixa nada por cima.
+
+![A faixa do overlay](docs/overlay.png)
+
+Calls se atropelam — várias caem na mesma janela de poucos segundos — então a
+faixa lista as quatro próximas, a mais perto no topo em amarelo e o resto
+apagado. O canto onde ela fica se escolhe na mesma tela.
 
 Fechar a janela manda o app para a **bandeja**, de onde dá para silenciar,
 ligar o overlay e sair de verdade. **Iniciar com o Windows** sobe o app já
@@ -177,7 +243,7 @@ eventos individuais.
 
 | Call | Quando | Aviso |
 | --- | --- | --- |
-| Stack | :53 de cada minuto, 1:00–30:00 | 5s |
+| Stack | :53 de cada minuto, 0:53–30:00 | 10s |
 | Pull | :15 de cada minuto, 1:00–15:00 | 6s |
 | Bounty | a cada 3:00 | 10s |
 | Runa de poder | a cada 2:00, a partir de 6:00 | 15s |

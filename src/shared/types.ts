@@ -45,6 +45,7 @@ export interface Settings {
   mutedEvents: string[];
   /** the thin in-game strip; off until asked for, it is not the point of the app */
   overlayEnabled: boolean;
+  overlayCorner: OverlayCorner;
   startWithWindows: boolean;
 }
 
@@ -52,9 +53,17 @@ export interface Settings {
  * What the overlay strip shows. The renderer owns the engine, so it formats
  * everything and the main process only forwards it.
  */
+export type OverlayCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export interface OverlayItem {
+  label: string;
+  in: string;              // already formatted, e.g. "1:09"
+  priority: number;
+}
+
 export interface OverlayState {
-  nextLabel: string | null;
-  nextIn: string | null;   // already formatted, e.g. "1:09"
+  /** upcoming calls, soonest first — several are often due at once */
+  items: OverlayItem[];
   speaking: string | null; // call text while it is being spoken
   muted: boolean;
 }

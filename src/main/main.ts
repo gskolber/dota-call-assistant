@@ -192,6 +192,7 @@ function wireIpc(): void {
 
   ipcMain.handle('settings:get', () => store.load());
   ipcMain.handle('settings:set', (_e, partial: Partial<Settings>) => {
+    if (partial.overlayCorner) overlay.moveOverlay(partial.overlayCorner);
     const next = store.patch(partial);
     if (partial.hotkeys) registerHotkeys();
     if (partial.overlayEnabled !== undefined) overlay.setEnabled(next.overlayEnabled);

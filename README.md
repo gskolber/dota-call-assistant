@@ -12,6 +12,61 @@ inside the app.
 Nothing leaves the machine: no account, no telemetry, no network. The hotkeys
 only listen to your keyboard; nothing is ever sent to the game.
 
+![The live match screen](docs/live-match.png)
+
+---
+
+## Will I get banned?
+
+The honest answer first: nobody but Valve can speak for Valve, and this project
+comes with no warranty. What it can do is tell you exactly what it touches, so
+you can judge for yourself.
+
+**It reads one thing: the JSON that Dota itself sends.** Game State Integration
+is an official Valve feature, shipped with the game, documented by Valve, and
+switched on by a launch option Valve provides — `-gamestateintegration`. Dota
+posts a snapshot of your own match to a local address a few times a second.
+This app listens on `127.0.0.1:3000` and reads it. That is the whole
+integration. It is the same mechanism behind the stream overlays you see on
+every official broadcast.
+
+**What it never does**, and what would actually be over the line:
+
+- It does not read or write the game's memory, and does not attach to,
+  inject into or hook the Dota process.
+- It does not send input to the game. The global hotkeys use the operating
+  system's own shortcut registration to *listen*; nothing is ever typed,
+  clicked or scripted into Dota.
+- It does not modify any game file. The one file it writes is the GSI config
+  Valve's own feature reads, in the folder Valve created for it.
+- It does not read chat, other players, fog of war, or anything you cannot
+  already see on your own screen.
+
+**Everything it says, you could have said yourself** with a stopwatch. The
+stack is at :53 whether or not anything reminds you. The app is a timer that
+talks — it does not give you information the game was hiding.
+
+It also never talks to the network: no account, no telemetry, no update ping
+while you play. The one place your data goes is `%APPDATA%`, on your machine.
+
+---
+
+## Download (no terminal needed)
+
+If you just want to use it and never touch code:
+
+1. Go to the [**Releases**](../../releases) page.
+2. Download `CallAssistant-<version>-x64.exe` — the installer — or the
+   portable build if you would rather not install anything.
+3. Run it. Windows SmartScreen will warn you that the publisher is unknown,
+   because the build is not code-signed (a certificate costs money this
+   project does not have). Click **More info** → **Run anyway**, or check the
+   build yourself: every release is produced by GitHub Actions from the source
+   in this repository, and the log is public.
+4. Open the app, go to `06 · GSI SETUP` and follow the three steps there.
+
+Everything below this point is for people who want to run it from source.
+
 ---
 
 ## Requirements
@@ -88,6 +143,8 @@ carries its own `text` with a short and a long form per locale.
 The screen shows the raw payload arriving, so you can tell immediately whether
 it worked.
 
+![The GSI setup screen](docs/gsi-setup.png)
+
 ---
 
 ## Recording your own calls (the `05 · AUDIO` screen)
@@ -112,6 +169,8 @@ Clips are mono WAV, one folder per locale:
 The **FOLDER** button opens that directory. You can swap the files by hand, as
 long as you keep the name (`<id>.wav`).
 
+![The audio screen](docs/audio.png)
+
 ---
 
 ## Overlay, tray and start with Windows
@@ -123,6 +182,12 @@ call and its countdown. It is click-through, stays out of Alt+Tab and never
 takes focus — the point is that you forget it is there. It only shows up with
 Dota in windowed or borderless mode; in exclusive fullscreen Windows lets
 nothing sit on top.
+
+![The overlay strip](docs/overlay.png)
+
+Calls collide — several are often due within the same few seconds — so the
+strip lists the next four, soonest at the top in acid, the rest dimmed. Pick
+which corner it sits in on the same screen.
 
 Closing the window sends the app to the **tray**, where you can mute, toggle
 the overlay and actually quit. **Start with Windows** brings it up already
@@ -184,7 +249,7 @@ individual events.
 
 | Call | When | Lead |
 | --- | --- | --- |
-| Stack | :53 of every minute, 1:00–30:00 | 5s |
+| Stack | :53 of every minute, 0:53–30:00 | 10s |
 | Pull | :15 of every minute, 1:00–15:00 | 6s |
 | Bounty | every 3:00 | 10s |
 | Power rune | every 2:00, from 6:00 | 15s |

@@ -4,8 +4,11 @@ import {
 } from '../shared/catalog';
 import { UI_LANGUAGES, type MessageKey, type Translate } from '../shared/i18n';
 import type {
-  ClipId, ClipIndex, GsiPayload, GsiStatus, HotkeyName, Locale, ScreenId, Settings,
+  ClipId, ClipIndex, GsiPayload, GsiStatus, HotkeyName, Locale, OverlayCorner,
+  ScreenId, Settings,
 } from '../shared/types';
+
+const CORNERS: OverlayCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 import type { CallEngine, EngineFlags } from './engine';
 import type { MatchState } from './match';
 import { h, mount } from './dom';
@@ -752,6 +755,18 @@ function audioScreen(ctx: Ctx): HTMLElement {
               class: settings.startWithWindows ? 'choice--on' : '',
               onClick: () => actions.patch({ startWithWindows: !settings.startWithWindows }),
             }),
+          ),
+          h('div.label', { style: 'margin-top:14px;margin-bottom:8px', text: t('overlay.corner') }),
+          h(
+            'div.choices',
+            {},
+            CORNERS.map((corner) =>
+              h('button.choice', {
+                text: t(`corner.${corner}`),
+                class: settings.overlayCorner === corner ? 'choice--on' : '',
+                onClick: () => actions.patch({ overlayCorner: corner }),
+              }),
+            ),
           ),
         ),
         h(

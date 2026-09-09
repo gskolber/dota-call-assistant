@@ -47,11 +47,14 @@ const SUPPORTS: RoleId[] = ['POS 4', 'POS 5'];
  */
 export const EVENTS: ScheduledEvent[] = [
   {
-    id: 'stack', label: 'STACK', kind: 'cyclic', every: 60, at: 53, lead: 5,
-    window: [60, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
+    // The window opens at :53 rather than 1:00 so the first stack of the game
+    // is called; ten seconds of lead is what it takes to leave the lane and
+    // reach the camp, which five never was.
+    id: 'stack', label: 'STACK', kind: 'cyclic', every: 60, at: 53, lead: 10,
+    window: [53, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
     text: {
-      'pt-BR': { dry: 'Stack', verbose: 'Stack em cinco' },
-      en: { dry: 'Stack', verbose: 'Stack in five' },
+      'pt-BR': { dry: 'Stack', verbose: 'Stack em dez' },
+      en: { dry: 'Stack', verbose: 'Stack in ten' },
     },
   },
   {

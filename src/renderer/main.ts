@@ -249,13 +249,18 @@ function render(force = false): void {
   state.dirty = false;
 }
 
+/** How many upcoming calls the strip shows at once. */
+const OVERLAY_ROWS = 4;
+
 /** The overlay is a second window; it only knows what we tell it. */
 function pushOverlay(ctx: Ctx): void {
   if (!ctx.settings.overlayEnabled) return;
-  const next = engine.queue(state.clock, flags(), 1)[0];
   void window.api.overlay.update({
-    nextLabel: next?.label ?? null,
-    nextIn: next ? mmss(next.inSeconds) : null,
+    items: engine.queue(state.clock, flags(), OVERLAY_ROWS).map((item) => ({
+      label: item.label,
+      in: mmss(item.inSeconds),
+      priority: item.priority,
+    })),
     speaking: state.speaking?.text ?? null,
     muted: ctx.settings.muted,
   });

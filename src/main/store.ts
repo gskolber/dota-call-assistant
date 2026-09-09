@@ -23,6 +23,7 @@ const DEFAULTS: Omit<Settings, 'gsiToken'> & { gsiToken: string } = {
   hotkeys: { mute: 'F9', roshan: 'num1', palette: 'num0' },
   mutedEvents: [],
   overlayEnabled: false,
+  overlayCorner: 'top-right',
   startWithWindows: false,
 };
 

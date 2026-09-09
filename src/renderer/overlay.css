@@ -6,6 +6,7 @@
   --ink: #0a0a0a;
   --acid: #e8ff2f;
   --alert: #ff3b14;
+  --paper: #e8e6e0;
   --grey: #8c897f;
   --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
 }
@@ -25,57 +26,75 @@ html, body {
 
 .strip {
   height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 14px;
-  background: rgba(10, 10, 10, 0.82);
+  padding: 4px 8px;
+  background: rgba(10, 10, 10, 0.78);
   border: 2px solid var(--ink);
-  border-left: 6px solid var(--acid);
+  border-left: 5px solid var(--acid);
   color: var(--acid);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.strip--muted { border-left-color: var(--alert); color: var(--grey); }
+.strip--muted { border-left-color: var(--alert); }
 
-.strip__label {
+.strip__rows { display: flex; flex-direction: column; }
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  height: 26px;
+  color: var(--grey);
+}
+
+/* The soonest call is the one that matters; the ones below are only there so
+   a collision does not hide them, and they stay dim on purpose. */
+.row:first-child { color: var(--acid); }
+.row--urgent:first-child { color: var(--paper); }
+.strip--muted .row:first-child { color: var(--grey); }
+
+.row__label {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.strip__in {
-  font-size: 22px;
+.row__in {
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #e8e6e0;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 
-.strip--muted .strip__in { color: var(--grey); }
+.row:first-child .row__in { font-size: 19px; }
+.row--empty { color: var(--grey); justify-content: center; }
 
-/* While a call is being spoken the text is the call itself, flashing so the
-   eye catches it without having to read. */
-.strip--speaking { animation: flash-bg 420ms steps(1, end) infinite; }
-
-/* the text inverts with the background, in step, so it stays readable in
-   both halves of the flash instead of vanishing into the acid */
-.strip--speaking .strip__label,
-.strip--speaking .strip__in {
-  animation: flash-fg 420ms steps(1, end) infinite;
+/* While a call is spoken it takes the top of the strip, flashing so the eye
+   catches it without having to read. */
+.strip__speaking {
+  display: none;
+  padding: 3px 2px 5px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--acid);
 }
 
-@keyframes flash-bg {
-  0%, 49% { background: rgba(10, 10, 10, 0.82); }
-  50%, 100% { background: var(--acid); }
-}
+.strip__speaking--on { display: block; }
+.strip__speaking--flash { animation: flash 420ms steps(1, end) infinite; }
 
-@keyframes flash-fg {
-  0%, 49% { color: var(--acid); }
-  50%, 100% { color: var(--ink); }
+@keyframes flash {
+  0%, 49% { background: transparent; color: var(--acid); }
+  50%, 100% { background: var(--acid); color: var(--ink); }
 }

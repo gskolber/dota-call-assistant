@@ -9,14 +9,43 @@
 import path from 'node:path';
 import { BrowserWindow, screen } from 'electron';
 
-import type { OverlayState } from '../shared/types';
+import type { OverlayCorner, OverlayState } from '../shared/types';
+import * as store from './store';
 
-const WIDTH = 320;
-const HEIGHT = 64;
+const WIDTH = 260;
+/** one header-less row per call, plus the padding around them */
+const ROW = 26;
+const ROWS = 4;
+const HEIGHT = ROW * ROWS + 12;
 /** gap from the top of the work area, enough to clear a Dota HUD notification */
 const MARGIN = 12;
 
 let overlay: BrowserWindow | null = null;
+
+/**
+ * The strip lives in a corner so it never sits over the top bar or the shop.
+ * Which corner is the user's call: what is free depends on their resolution
+ * and on whether they run the HUD scaled.
+ */
+function cornerPosition(
+  corner: OverlayCorner,
+  area: { x: number; y: number; width: number; height: number },
+): { x: number; y: number } {
+  const right = corner === 'top-right' || corner === 'bottom-right';
+  const bottom = corner === 'bottom-left' || corner === 'bottom-right';
+  return {
+    x: right ? area.x + area.width - WIDTH - MARGIN : area.x + MARGIN,
+    y: bottom ? area.y + area.height - HEIGHT - MARGIN : area.y + MARGIN,
+  };
+}
+
+/** Moves an already-open strip when the user picks another corner. */
+export function moveOverlay(corner: OverlayCorner): void {
+  if (!overlay || overlay.isDestroyed()) return;
+  const { workArea } = screen.getPrimaryDisplay();
+  const { x, y } = cornerPosition(corner, workArea);
+  overlay.setBounds({ x, y, width: WIDTH, height: HEIGHT });
+}
 /** kept so a freshly created strip is not blank until the next renderer tick */
 let last: OverlayState | null = null;
 
@@ -26,8 +55,7 @@ function create(): BrowserWindow {
   const win = new BrowserWindow({
     width: WIDTH,
     height: HEIGHT,
-    x: Math.round(workArea.x + (workArea.width - WIDTH) / 2),
-    y: workArea.y + MARGIN,
+    ...cornerPosition(store.load().overlayCorner, workArea),
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
