@@ -54,6 +54,41 @@ function walk(value, prefix, out) {
   for (const [k, v] of Object.entries(value)) walk(v, prefix ? `${prefix}.${k}` : k, out);
 }
 
+/**
+ * Dota pretty-prints its JSON, so a payload spans many lines and the file is a
+ * stream of concatenated objects rather than one per line. Split it by brace
+ * depth, ignoring braces that live inside strings.
+ */
+function* objects(text) {
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') inString = true;
+    else if (ch === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        yield text.slice(start, i + 1);
+        start = -1;
+      }
+    }
+  }
+}
+
 function analyse(file) {
   const paths = new Map();
   const states = new Set();
@@ -61,11 +96,10 @@ function analyse(file) {
   let clockMin = Infinity;
   let clockMax = -Infinity;
 
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    if (!line.trim()) continue;
+  for (const chunk of objects(fs.readFileSync(file, 'utf8'))) {
     let payload;
     try {
-      payload = JSON.parse(line);
+      payload = JSON.parse(chunk);
     } catch {
       continue;
     }
@@ -118,7 +152,12 @@ function probe() {
       req.on('end', () => {
         res.writeHead(200).end();
         const body = Buffer.concat(chunks).toString('utf8');
-        stream.write(`${body}\n`);
+        // Dota pretty-prints its JSON; collapse it so the file really is JSONL
+        let line = body.replace(/\s+/g, ' ');
+        try {
+          line = JSON.stringify(JSON.parse(body));
+        } catch { /* keep the raw body: a malformed payload is worth having */ }
+        stream.write(`${line}\n`);
         count += 1;
 
         let state = '';

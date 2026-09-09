@@ -157,6 +157,8 @@ export interface GsiHero {
 }
 
 export interface GsiAbility {
+  /** full length of this cooldown, so it need not be inferred by sampling */
+  max_cooldown?: number;
   name?: string;
   level?: number;
   can_cast?: boolean;
@@ -171,6 +173,8 @@ export interface GsiAbility {
 export type GsiAbilities = Record<string, GsiAbility>;
 
 export interface GsiItem {
+  /** full length of this cooldown, so it need not be inferred by sampling */
+  max_cooldown?: number;
   name?: string;
   purchaser?: number;
   charges?: number;

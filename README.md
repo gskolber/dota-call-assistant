@@ -296,8 +296,10 @@ The renderer uses no framework: plain DOM, rebuilt every tick.
 
 - GSI reports neither your ward stock in the shop nor enemy positions. The
   discipline panel only sees what is in your inventory.
-- Roshan and the palette timers are manual by definition: the game does not
-  tell anyone about them.
+- Roshan and the palette timers are manual today. GSI does carry an `events`
+  stream of chat-message events, so some of these may turn out to be
+  detectable — only item purchases have been observed so far, in a hero demo.
+  `tools/gsi-probe.mjs` is there to settle it against a real match.
 - The overlay does not show with Dota in exclusive fullscreen. Use windowed or
   borderless, or just leave it off — the app is built to be heard, not looked
   at, during a match.

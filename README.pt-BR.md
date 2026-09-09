@@ -289,8 +289,10 @@ O renderer não usa framework: DOM direto, reconstruído a cada tick.
 
 - A GSI não informa estoque de wards na loja nem posição dos inimigos. O painel
   de disciplina só enxerga o que está no seu inventário.
-- Roshan e os timers da paleta são manuais por definição: o jogo não conta isso
-  para ninguém.
+- Roshan e os timers da paleta são manuais hoje. A GSI tem um fluxo `events`
+  de mensagens de chat, então parte disso pode ser detectável — até agora só
+  observei compra de item, e num demo de herói. O `tools/gsi-probe.mjs` existe
+  para resolver isso contra uma partida de verdade.
 - O overlay não aparece com o Dota em tela cheia exclusiva. Use janela ou
   borderless, ou simplesmente deixe desligado: o app foi feito para ser
   ouvido, não olhado, durante a partida.

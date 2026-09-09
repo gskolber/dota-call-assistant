@@ -142,12 +142,18 @@ export class MatchTracker {
   private readyMark(
     key: string,
     cooldown: number,
+    maxCooldown: number,
     usable: boolean,
     minimum: number,
     clock: number,
     previous: number | null,
   ): number | null {
-    const peak = Math.max(this.cooldownPeak.get(key) ?? 0, cooldown);
+    // The game reports the full length of the cooldown, so prefer it over the
+    // largest value we happened to observe: joining a match mid-cooldown, or
+    // missing payloads, would otherwise make a long wait look like a short one
+    // and silence the call. The observed peak stays as a fallback for a patch
+    // that stops sending max_cooldown.
+    const peak = Math.max(this.cooldownPeak.get(key) ?? 0, cooldown, maxCooldown);
     if (cooldown > 0 || !usable) {
       this.cooldownPeak.set(key, peak);
       return previous;
@@ -181,7 +187,7 @@ export class MatchTracker {
       && ultimate.can_cast !== false;
     const ultimateReadyAt = ultimate
       ? this.readyMark(
-        'ultimate', ultimate.cooldown ?? 0, ultimateReady,
+        'ultimate', ultimate.cooldown ?? 0, ultimate.max_cooldown ?? 0, ultimateReady,
         ULTIMATE_MIN_COOLDOWN, clock, previous.ultimateReadyAt,
       )
       : previous.ultimateReadyAt;
@@ -196,7 +202,7 @@ export class MatchTracker {
       }
       const cooldown = item.cooldown ?? 0;
       const mark = this.readyMark(
-        name, cooldown, cooldown === 0 && item.can_cast !== false,
+        name, cooldown, item.max_cooldown ?? 0, cooldown === 0 && item.can_cast !== false,
         ITEM_MIN_COOLDOWN, clock, itemsReadyAt[name] ?? null,
       );
       if (mark !== null) itemsReadyAt[name] = mark;
