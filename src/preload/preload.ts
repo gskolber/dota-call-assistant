@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import type {
-  Api, ClipId, HotkeyName, Locale, OverlayState, Settings, Unsubscribe,
+  Api, ClipId, HotkeyName, Locale, MatchRecord, OverlayState, Settings, Unsubscribe,
 } from '../shared/types';
 
 function on<T>(channel: string): (handler: (payload: T) => void) => Unsubscribe {
@@ -55,6 +55,13 @@ const api: Api = {
     chooseFolder: () => ipcRenderer.invoke('gsi:chooseFolder'),
     onPayload: on('gsi:payload'),
     onStatus: on('gsi:status'),
+  },
+
+  matches: {
+    record: (record: MatchRecord) => ipcRenderer.invoke('matches:record', record),
+    list: (limit?: number) => ipcRenderer.invoke('matches:list', limit),
+    get: (matchId: string, startedAt: number) => ipcRenderer.invoke('matches:get', matchId, startedAt),
+    reveal: () => ipcRenderer.invoke('matches:reveal'),
   },
 
   app: {

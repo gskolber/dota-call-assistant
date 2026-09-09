@@ -265,8 +265,11 @@ export interface MatchSummary {
   matchId: string;
   startedAt: number;
   hero: string;
+  team: Team | null;
   role: RoleId;
   duration: number;
+  /** null while the match is still being recorded */
+  endedAt: number | null;
   spoken: number;
   dropped: number;
 }
@@ -320,7 +323,7 @@ export interface Api {
     onStatus(handler: (status: GsiStatus) => void): Unsubscribe;
   };
   matches: {
-    /** appends what happened this tick; the main process owns the file */
+    /** upserts the whole accumulated record; the main process owns the file */
     record(record: MatchRecord): Promise<void>;
     list(limit?: number): Promise<MatchSummary[]>;
     get(matchId: string, startedAt: number): Promise<MatchRecord | null>;

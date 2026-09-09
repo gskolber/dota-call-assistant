@@ -13,6 +13,7 @@ import * as overlay from './overlay';
 import * as recordings from './recordings';
 import * as store from './store';
 import { GsiServer, PORT } from './gsi';
+import { registerMatchIpc } from './matchlog';
 import { registerVoicePackIpc } from './voicepack';
 
 const isDev = process.argv.includes('--dev');
@@ -296,6 +297,7 @@ if (!app.requestSingleInstanceLock()) {
 
     wireIpc();
     registerVoicePackIpc(() => win);
+    registerMatchIpc();
     createWindow({ hidden: isAutostart });
     createTray();
     registerHotkeys();

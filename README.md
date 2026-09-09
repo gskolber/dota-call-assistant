@@ -200,6 +200,26 @@ be trusted.
 
 ---
 
+## The report
+
+`08 · REPORT` keeps the last 50 matches and tells you what the game actually
+reported about you: seconds spent alive with no TP, seconds past 20:00 unable
+to buy back, deaths that happened with buyback out of reach, wards and smokes
+that left your bag, gold that sat unspent.
+
+No score, no grade, no advice. The numbers carry their denominator — "4:12 of
+40:10 played after 2:00" — and stop there.
+
+**It will never tell you that you missed a stack.** GSI does not report neutral
+camps, the shop, or anyone else on the map. Everything on that screen is read
+from your own inventory and your own gold, and the screen says so. A tool that
+guessed here would be more satisfying and less true.
+
+The call log on the same screen is about the silence: every call that came due
+and did not speak, and which rule stopped it.
+
+---
+
 ## Global hotkeys
 
 They work with Dota focused. Remappable on `05 · AUDIO`.

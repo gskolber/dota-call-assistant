@@ -196,6 +196,26 @@ corta entrada acima de 8 MB. Um `.zip` da internet não é confiável.
 
 ---
 
+## O relatório
+
+`08 · RELATÓRIO` guarda as últimas 50 partidas e conta o que o jogo realmente
+reportou sobre você: segundos vivo sem TP, segundos depois dos 20:00 sem
+buyback, mortes com buyback fora de alcance, wards e smokes que saíram da
+mochila, ouro parado.
+
+Sem nota, sem conceito, sem conselho. Os números vêm com o denominador —
+"4:12 de 40:10 jogados depois de 2:00" — e param por aí.
+
+**Ele nunca vai dizer que você perdeu um stack.** A GSI não reporta campo
+neutro, nem a loja, nem ninguém no mapa. Tudo naquela tela sai do seu próprio
+inventário e do seu próprio ouro, e a tela diz isso. Uma ferramenta que
+chutasse aqui seria mais satisfatória e menos verdadeira.
+
+O log de calls da mesma tela é sobre o silêncio: toda call que venceu e não
+falou, e qual regra a segurou.
+
+---
+
 ## Atalhos globais
 
 Funcionam com o Dota em foco. Remapeáveis em `05 · ÁUDIO`.

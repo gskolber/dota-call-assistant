@@ -1,11 +1,13 @@
 import { CLIPS, PALETTE, mmss } from '../shared/catalog';
 import { translator, type MessageKey, type Translate, type Vars } from '../shared/i18n';
 import type {
-  ClipIndex, GsiPayload, GsiStatus, HotkeyName, ScreenId, Settings,
+  ClipIndex, GsiPayload, GsiStatus, HotkeyName, MatchRecord, MatchSummary,
+  ScreenId, Settings,
 } from '../shared/types';
 import { AudioBank, listAudioDevices } from './audio';
 import { h, mount } from './dom';
 import { CallEngine, paletteByCode, type EngineFlags } from './engine';
+import { MatchHistory } from './history';
 import { EMPTY_MATCH, MatchTracker, type MatchState } from './match';
 import { RecordDialog } from './record-ui';
 import { renderScreen, renderSidebar, type Actions, type Ctx } from './screens';
@@ -16,6 +18,8 @@ const PALETTE_MS = 2600;
 const CATCH_UP = 5;
 /** silence after which Dota is considered gone, menu or match alike */
 const GSI_TIMEOUT_MS = 12_000;
+/** how often the record reaches the main process; it is a file write */
+const HISTORY_FLUSH_MS = 10_000;
 /** the audio screen owns <select>s that a blind re-render would fight with */
 const STATIC_SCREENS = new Set<ScreenId>(['audio']);
 
@@ -30,6 +34,7 @@ const dom = {
 
 const engine = new CallEngine();
 const tracker = new MatchTracker();
+const history = new MatchHistory();
 const audio = new AudioBank();
 
 const state = {
@@ -49,6 +54,8 @@ const state = {
   paletteOpen: false,
   lastMatchId: '',
   capturing: null as HotkeyName | null,
+  matches: null as MatchSummary[] | null,
+  selectedMatch: null as MatchRecord | null,
   dirty: true,
 };
 
@@ -60,6 +67,9 @@ let paletteTimer = 0;
 let toastTimer = 0;
 let lastTickedClock: number | null = null;
 let simAnchor = 0;
+let historySentAt = 0;
+/** writes are chained so a slow disk cannot let two records interleave */
+let historyWrite: Promise<void> = Promise.resolve();
 
 function settings(): Settings {
   if (!state.settings) throw new Error('settings not loaded yet');
@@ -101,6 +111,27 @@ async function loadClips(): Promise<void> {
 async function refreshDevices(): Promise<void> {
   state.devices = await listAudioDevices();
   state.dirty = true;
+}
+
+// ── match record ──────────────────────────────────────────────────────────
+
+function sendRecord(record: MatchRecord): void {
+  historySentAt = Date.now();
+  historyWrite = historyWrite
+    .then(() => window.api.matches.record(record))
+    .catch(() => undefined);
+}
+
+/** Closes whatever is open and writes it; the last word on a match. */
+function finishRecord(): void {
+  const record = history.end();
+  if (record) sendRecord(record);
+}
+
+function beginRecord(matchId: string): void {
+  finishRecord();
+  history.begin(matchId, state.match, settings().role, engine.getLog());
+  historySentAt = Date.now();
 }
 
 // ── clock ─────────────────────────────────────────────────────────────────
@@ -151,6 +182,15 @@ function runEngineTick(clock: number): void {
     const result = audio.speak(call.clip);
     if (result.source !== 'silent') speak(result.text, result.source);
   }
+
+  if (state.match.inMatch) {
+    history.observe(clock, state.match, settings().role, engine.getLog());
+    if (Date.now() - historySentAt >= HISTORY_FLUSH_MS) {
+      const record = history.snapshot();
+      if (record) sendRecord(record);
+    }
+  }
+
   state.dirty = true;
 }
 
@@ -202,6 +242,8 @@ function context(): Ctx {
     devices: state.devices,
     lastPayload: state.lastPayload,
     capturing: state.capturing,
+    matches: state.matches,
+    selectedMatch: state.selectedMatch,
     t,
     actions,
   };
@@ -379,7 +421,10 @@ const record = new RecordDialog(dom.record, {
 });
 
 const actions: Actions = {
-  setScreen: (screen) => void patchSettings({ screen }).then(() => render(true)),
+  setScreen: (screen) => void patchSettings({ screen }).then(() => {
+    if (screen === 'report') void loadMatches();
+    render(true);
+  }),
   patch: (partial) => void patchSettings(partial).then(() => render(true)),
 
   toggleDead: () => {
@@ -477,6 +522,9 @@ const actions: Actions = {
     });
   },
 
+  openMatch: (matchId, startedAt) => void openMatch(matchId, startedAt),
+  revealMatches: () => void window.api.matches.reveal(),
+
   copy: (value, what) => {
     void window.api.app.copy(value);
     toast('toast.copied', { what: what.toUpperCase() });
@@ -490,6 +538,21 @@ function reportVoicePack(result: Awaited<ReturnType<typeof window.api.voicePack.
   else if (result.ok) toast('toast.packExported');
   else if (result.detail === 'EMPTY') toast('toast.packEmpty');
   else toast('toast.packFailed');
+  render(true);
+}
+
+async function openMatch(matchId: string, startedAt: number): Promise<void> {
+  state.selectedMatch = await window.api.matches.get(matchId, startedAt);
+  state.dirty = true;
+  render(true);
+}
+
+/** These reads land outside a tick, so they force their own render. */
+async function loadMatches(): Promise<void> {
+  state.matches = await window.api.matches.list();
+  const newest = state.matches[0];
+  if (!state.selectedMatch && newest) await openMatch(newest.matchId, newest.startedAt);
+  state.dirty = true;
   render(true);
 }
 
@@ -551,16 +614,24 @@ function onPayload(payload: GsiPayload): void {
     state.lastMatchId = matchId;
     engine.reset();
     lastTickedClock = null;
+    // a match starting is handled just below, where the record opens anyway
+    if (state.match.inMatch && previous.inMatch) beginRecord(matchId);
   }
 
   if (state.match.inMatch && !previous.inMatch) {
     state.sim.active = false;
     state.deadOverride = false;
     lastTickedClock = null;
+    // Two hero demos in a row report the same matchid, so the match beginning
+    // is what separates their records; the id never changes to say so.
+    beginRecord(matchId);
     if (settings().screen === 'idle') void patchSettings({ screen: 'live' });
   }
-  if (!state.match.inMatch && previous.inMatch && settings().screen === 'live') {
-    void patchSettings({ screen: 'idle' });
+  if (!state.match.inMatch && previous.inMatch) {
+    finishRecord();
+    // the record was just written; surface it without making the user navigate
+    void loadMatches();
+    if (settings().screen === 'live') void patchSettings({ screen: 'idle' });
   }
   state.dirty = true;
 }
@@ -602,6 +673,8 @@ async function boot(): Promise<void> {
   state.settings = await window.api.settings.get();
   t = translator(state.settings.uiLanguage);
   applyAudioSettings();
+  // the screen is persisted, so a session can start on the report
+  if (state.settings.screen === 'report') void loadMatches();
 
   state.gsi = await window.api.gsi.status();
   await loadClips();
@@ -638,6 +711,8 @@ async function boot(): Promise<void> {
     if (!last || !state.match.connected) return;
     if (Date.now() - last > GSI_TIMEOUT_MS) {
       state.match = tracker.markDisconnected();
+      // Dota went away mid-match; the record ends where the payloads stopped
+      finishRecord();
       state.dirty = true;
     }
   }, 4000);

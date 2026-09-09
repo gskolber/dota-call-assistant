@@ -2,10 +2,10 @@ import {
   CLIPS, EVENTS, PALETTE, PHASES, PHASE_FOCUS, ROLES, STATE_CALLS,
   eventAppliesToRole, mmss, phaseFor,
 } from '../shared/catalog';
-import { UI_LANGUAGES, type MessageKey, type Translate } from '../shared/i18n';
+import { UI_LANGUAGES, type MessageKey, type Translate, type UiLanguage } from '../shared/i18n';
 import type {
-  ClipId, ClipIndex, GsiPayload, GsiStatus, HotkeyName, Locale, OverlayCorner,
-  ScreenId, Settings,
+  ClipId, ClipIndex, GsiPayload, GsiStatus, HotkeyName, Locale, MatchRecord,
+  MatchSummary, OverlayCorner, ScreenId, Settings,
 } from '../shared/types';
 
 const CORNERS: OverlayCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -36,6 +36,9 @@ export interface Actions {
   clearHotkey(name: HotkeyName): void;
   exportVoicePack(): void;
   importVoicePack(): void;
+  /** loads one past match into `Ctx.selectedMatch`; the read is asynchronous */
+  openMatch(matchId: string, startedAt: number): void;
+  revealMatches(): void;
 }
 
 export interface Ctx {
@@ -52,6 +55,10 @@ export interface Ctx {
   lastPayload: GsiPayload | null;
   /** the hotkey slot currently waiting for a key press, if any */
   capturing: HotkeyName | null;
+  /** past matches, newest first; null while the list is still being read */
+  matches: MatchSummary[] | null;
+  /** the record opened on the report screen, once it has been read */
+  selectedMatch: MatchRecord | null;
   t: Translate;
   actions: Actions;
 }
@@ -70,6 +77,7 @@ const NAV: { id: ScreenId; key: MessageKey }[] = [
   { id: 'audio', key: 'nav.audio' },
   { id: 'gsi', key: 'nav.gsi' },
   { id: 'idle', key: 'nav.idle' },
+  { id: 'report', key: 'nav.report' },
 ];
 
 const label = (text: string): HTMLElement => h('div.label', { text });
@@ -1080,6 +1088,284 @@ function idleScreen(ctx: Ctx): HTMLElement {
   );
 }
 
+// ── 08 report ─────────────────────────────────────────────────────────────
+
+/**
+ * The states the engine writes into a log entry. A record on disk can outlive
+ * the build that wrote it, so an unknown state is printed raw rather than
+ * guessed at.
+ */
+const LOG_STATE_KEYS: Record<string, MessageKey> = {
+  SPOKEN: 'log.SPOKEN',
+  MUTED: 'log.MUTED',
+  PAUSED: 'log.PAUSED',
+  DEAD: 'log.DEAD',
+  FIGHT: 'log.FIGHT',
+  BUDGET: 'log.BUDGET',
+  DROPPED: 'log.DROPPED',
+};
+
+/** What each state means for a call that never spoke. SPOKEN has no reason. */
+const DROP_REASON_KEYS: Record<string, MessageKey> = {
+  MUTED: 'report.reasonMuted',
+  PAUSED: 'report.reasonPaused',
+  DEAD: 'report.reasonDead',
+  FIGHT: 'report.reasonFight',
+  BUDGET: 'report.reasonBudget',
+  DROPPED: 'report.reasonDropped',
+};
+
+const SPOKEN = 'SPOKEN';
+
+/** A long match logs hundreds of drops; the tally above the list covers them all. */
+const DROP_ROWS = 50;
+
+/** The two state calls only start here, so their denominators start here too. */
+const TP_FROM = 120;
+const BUYBACK_FROM = 1200;
+
+function stateLabel(t: Translate, state: string): string {
+  const key = LOG_STATE_KEYS[state];
+  return key ? t(key) : state;
+}
+
+function reasonLabel(t: Translate, state: string): string {
+  const key = DROP_REASON_KEYS[state];
+  return key ? t(key) : state;
+}
+
+/** GSI reports the hero as `crystal_maiden`, already stripped of its prefix. */
+function heroLabel(hero: string, t: Translate): string {
+  return hero ? hero.replace(/_/g, ' ').toUpperCase() : t('report.unknownHero');
+}
+
+function whenLabel(startedAt: number, language: UiLanguage): string {
+  return new Date(startedAt).toLocaleString(language, {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+interface Fact {
+  label: string;
+  /** the denominator — several of these numbers say nothing without one */
+  meta: string | null;
+  value: string;
+}
+
+function disciplineFacts(record: MatchRecord, t: Translate): Fact[] {
+  const d = record.discipline;
+  const afterTp = Math.max(0, record.duration - TP_FROM);
+  const afterBuyback = Math.max(0, record.duration - BUYBACK_FROM);
+
+  return [
+    {
+      label: t('report.withoutTp'),
+      meta: afterTp > 0
+        ? t('report.withoutTpOf', { time: mmss(afterTp) })
+        : t('report.windowNotReached'),
+      value: mmss(d.secondsWithoutTp),
+    },
+    {
+      label: t('report.withoutBuyback'),
+      meta: afterBuyback > 0
+        ? t('report.withoutBuybackOf', { time: mmss(afterBuyback) })
+        : t('report.windowNotReached'),
+      value: mmss(d.secondsWithoutBuyback),
+    },
+    { label: t('report.deaths'), meta: null, value: String(d.deaths) },
+    {
+      label: t('report.deathsNoBuyback'),
+      meta: t('report.ofDeaths', { count: d.deaths }),
+      value: String(d.deathsWithoutBuyback),
+    },
+    { label: t('report.sentries'), meta: t('report.leftTheBag'), value: String(d.sentriesPlaced) },
+    { label: t('report.observers'), meta: t('report.leftTheBag'), value: String(d.observersPlaced) },
+    { label: t('report.smokes'), meta: t('report.leftTheBag'), value: String(d.smokesUsed) },
+    { label: t('report.peakGold'), meta: null, value: String(d.peakGold) },
+    {
+      label: t('report.goldIdle'),
+      meta: t('report.ofMatch', { time: mmss(record.duration) }),
+      value: mmss(d.secondsGoldIdle),
+    },
+  ];
+}
+
+function factRow(fact: Fact): HTMLElement {
+  return h(
+    'div.row',
+    {},
+    h('div.row__label', { text: fact.label }),
+    fact.meta ? h('div.row__meta', { text: fact.meta }) : null,
+    h('div.row__time', { text: fact.value }),
+  );
+}
+
+function matchRow(ctx: Ctx, summary: MatchSummary): HTMLElement {
+  const selected = ctx.selectedMatch?.matchId === summary.matchId
+    && ctx.selectedMatch.startedAt === summary.startedAt;
+
+  return h(
+    'div.row',
+    {
+      style: selected ? 'cursor:pointer;background:var(--ink);color:var(--acid)' : 'cursor:pointer',
+      onClick: () => ctx.actions.openMatch(summary.matchId, summary.startedAt),
+    },
+    h(
+      'div.row__label',
+      {},
+      heroLabel(summary.hero, ctx.t),
+      h('div.row__meta', {
+        style: selected ? 'margin-top:5px;color:inherit' : 'margin-top:5px',
+        text: `${summary.role} · ${whenLabel(summary.startedAt, ctx.settings.uiLanguage)}`,
+      }),
+    ),
+    h('div.row__time', { text: mmss(summary.duration) }),
+  );
+}
+
+/** The log panel: what the app decided not to say, and what silenced it. */
+function callLog(ctx: Ctx, record: MatchRecord): HTMLElement[] {
+  const { t } = ctx;
+  const drops = record.calls.filter((call) => call.state !== SPOKEN);
+  const spoken = record.calls.length - drops.length;
+
+  const tally = new Map<string, number>();
+  for (const call of drops) tally.set(call.state, (tally.get(call.state) ?? 0) + 1);
+  const reasons = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+
+  // newest first, like the live log, and capped: the tally above already
+  // accounts for every drop, listed or not
+  const latest = [...drops].reverse().slice(0, DROP_ROWS);
+  const hidden = drops.length - latest.length;
+
+  const head = panelHead(
+    t('report.log'),
+    h('div.row__meta', { text: t('report.logCounts', { dropped: drops.length, spoken }) }),
+  );
+
+  if (!record.calls.length) return [head, h('div.empty', { text: t('report.noCalls') })];
+  if (!drops.length) return [head, h('div.empty', { text: t('report.noDrops') })];
+
+  return [
+    head,
+    h('div.note', { text: t('report.silenceNote') }),
+    h('div.label', { style: 'padding:0 18px 10px', text: t('report.reasons') }),
+    ...reasons.map(([state, count]) =>
+      h(
+        'div.row',
+        {},
+        h('div.row__label', { text: reasonLabel(t, state) }),
+        h('div.state', { text: stateLabel(t, state) }),
+        h('div.row__time', { text: String(count) }),
+      ),
+    ),
+    panelHead(t('report.droppedList', { count: latest.length })),
+    ...latest.map((call) =>
+      h(
+        'div.row',
+        {},
+        h('div.row__meta', {
+          style: 'width:44px;font-variant-numeric:tabular-nums',
+          text: mmss(call.clock),
+        }),
+        h('div.row__label', { style: 'font-size:13px', text: call.label }),
+        h('div.row__meta', { text: `P${call.priority}` }),
+        h('div.state', { text: stateLabel(t, call.state) }),
+      ),
+    ),
+    ...(hidden > 0 ? [h('div.hint', { style: 'padding:14px 18px', text: t('report.moreDropped', { count: hidden }) })] : []),
+  ];
+}
+
+function matchDetail(ctx: Ctx, record: MatchRecord): HTMLElement {
+  const { t } = ctx;
+
+  return h(
+    'div',
+    {},
+    h(
+      'div.topbar',
+      {},
+      h('div.topbar__cell.topbar__cell--strong', { text: heroLabel(record.hero, t) }),
+      h('div.topbar__cell', { text: t('live.role', { role: record.role }) }),
+      h('div.topbar__cell', { text: t('report.duration', { time: mmss(record.duration) }) }),
+      h('div.topbar__cell', {
+        text: record.team
+          ? t('role.side', { team: record.team.toUpperCase() })
+          : t('report.sideUnknown'),
+      }),
+      h('div.topbar__cell', {
+        text: t('report.started', { when: whenLabel(record.startedAt, ctx.settings.uiLanguage) }),
+      }),
+      h('div.topbar__cell.topbar__spacer', {
+        text: record.matchId === '0' ? t('report.customGame') : t('report.matchId', { id: record.matchId }),
+      }),
+    ),
+    panelHead(t('report.discipline')),
+    disciplineFacts(record, t).map(factRow),
+    h('div.note', { text: t('report.disciplineNote') }),
+    callLog(ctx, record),
+  );
+}
+
+/** First run lands here with nothing to show, so it has to say what will land. */
+function emptyReport(ctx: Ctx): HTMLElement {
+  const { t } = ctx;
+  return h(
+    'div.fill',
+    { style: 'display:flex;flex-direction:column;justify-content:center;padding:40px 44px;gap:18px' },
+    h('div', {
+      style: 'font-family:var(--display);font-size:66px;line-height:0.9;letter-spacing:-0.03em',
+      html: t('report.emptyTitle'),
+    }),
+    h('div.hint', { style: 'font-size:12px;max-width:66ch', text: t('report.emptyBody') }),
+    h('div.hint', { style: 'font-size:12px;max-width:66ch', text: t('report.emptyNote') }),
+  );
+}
+
+function reportScreen(ctx: Ctx): HTMLElement {
+  const { matches, selectedMatch, actions, t } = ctx;
+
+  const head = h(
+    'div.screen__head',
+    {},
+    h('div.screen__title', { text: t('report.title') }),
+    h('div.screen__sub', { text: t('report.sub') }),
+  );
+
+  if (matches !== null && !matches.length) return h('div', {}, head, emptyReport(ctx));
+
+  return h(
+    'div',
+    {},
+    head,
+    h(
+      'div.grid2.grid2--rule.fill',
+      { style: 'grid-template-columns:0.85fr 1.4fr' },
+      h(
+        'div',
+        {},
+        panelHead(
+          t('report.matches'),
+          h('button.btn.btn--tight', {
+            text: t('report.folder'),
+            onClick: () => actions.revealMatches(),
+          }),
+        ),
+        matches === null
+          ? h('div.empty', { text: t('report.loading') })
+          : matches.map((summary) => matchRow(ctx, summary)),
+      ),
+      selectedMatch
+        ? matchDetail(ctx, selectedMatch)
+        : h('div', {}, h('div.empty', { text: t('report.pick') })),
+    ),
+  );
+}
+
 // ── router ────────────────────────────────────────────────────────────────
 
 export function renderScreen(root: HTMLElement, ctx: Ctx): void {
@@ -1091,6 +1377,7 @@ export function renderScreen(root: HTMLElement, ctx: Ctx): void {
     audio: audioScreen,
     gsi: gsiScreen,
     idle: idleScreen,
+    report: reportScreen,
   };
   mount(root, screens[ctx.settings.screen](ctx));
 }
