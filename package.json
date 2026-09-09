@@ -1,0 +1,47 @@
+{
+  "name": "dota-call-assistant",
+  "productName": "Call Assistant",
+  "version": "1.0.0",
+  "description": "Assistente de calls por voz para Dota 2 - timings via Game State Integration, alertas gravados pelo proprio jogador.",
+  "main": "dist/main/main.js",
+  "author": "kolber",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron . --dev",
+    "check": "npm run typecheck && npm run build",
+    "pack": "npm run build && electron-builder --win --dir",
+    "dist": "npm run build && electron-builder --win nsis portable --x64"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "com.kolber.callassistant",
+    "productName": "Call Assistant",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["dist/**/*", "package.json"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "CallAssistant-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Call Assistant"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src 'self' blob:; img-src 'self' data:; connect-src 'self'"
+    />
+    <title>Call Assistant</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="titlebar" id="titlebar"></div>
+      <div class="body">
+        <aside class="sidebar" id="sidebar"></aside>
+        <main class="main" id="main"></main>
+      </div>
+    </div>
+    <div id="palette"></div>
+    <div id="record"></div>
+    <div id="toast"></div>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>
