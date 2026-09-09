@@ -249,7 +249,7 @@ individual events.
 
 | Call | When | Lead |
 | --- | --- | --- |
-| Stack | :53 of every minute, 0:53–30:00 | 10s |
+| Stack | :53 of every minute, 1:53–30:00 | 10s |
 | Pull | :15 of every minute, 1:00–15:00 | 6s |
 | Bounty | every 3:00 | 10s |
 | Power rune | every 2:00, from 6:00 | 15s |

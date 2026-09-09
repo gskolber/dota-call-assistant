@@ -47,11 +47,12 @@ const SUPPORTS: RoleId[] = ['POS 4', 'POS 5'];
  */
 export const EVENTS: ScheduledEvent[] = [
   {
-    // The window opens at :53 rather than 1:00 so the first stack of the game
-    // is called; ten seconds of lead is what it takes to leave the lane and
-    // reach the camp, which five never was.
+    // Ten seconds of lead is what it takes to leave the lane and reach the
+    // camp; five never was. The window opens at 1:00 because the camps are
+    // empty until then — the first creeps spawn at 1:00, so the first camp
+    // that can be pulled out of its box is the 2:00 one, at 1:53.
     id: 'stack', label: 'STACK', kind: 'cyclic', every: 60, at: 53, lead: 10,
-    window: [53, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
+    window: [60, 1800], roles: ['POS 1', 'POS 4', 'POS 5'], priority: 2, clip: 'stack',
     text: {
       'pt-BR': { dry: 'Stack', verbose: 'Stack em dez' },
       en: { dry: 'Stack', verbose: 'Stack in ten' },

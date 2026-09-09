@@ -243,7 +243,7 @@ eventos individuais.
 
 | Call | Quando | Aviso |
 | --- | --- | --- |
-| Stack | :53 de cada minuto, 0:53–30:00 | 10s |
+| Stack | :53 de cada minuto, 1:53–30:00 | 10s |
 | Pull | :15 de cada minuto, 1:00–15:00 | 6s |
 | Bounty | a cada 3:00 | 10s |
 | Runa de poder | a cada 2:00, a partir de 6:00 | 15s |

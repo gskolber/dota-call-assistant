@@ -11,8 +11,8 @@ test('queue returns upcoming calls in fire-time order', () => {
   assert.deepEqual(
     items.map((i) => [i.id, i.fireAt]),
     [
-      ['stack', 43],
       ['pull', 69],
+      ['stack', 103],
       ['bounty', 170],
       ['night', 290],
       ['power_rune', 345],

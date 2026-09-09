@@ -22,13 +22,14 @@ function firesBetween(id: string, from: number, to: number, role: RoleId = 'POS 
   return out;
 }
 
-test('STACK fires 10s before :53 of every minute, i.e. at 43, 103, 163…', () => {
-  assert.deepEqual(firesBetween('stack', 0, 300), [43, 103, 163, 223, 283]);
+test('STACK fires 10s before :53 of every minute, i.e. at 103, 163, 223…', () => {
+  assert.deepEqual(firesBetween('stack', 0, 300), [103, 163, 223, 283]);
 });
 
 test('STACK respects its 1:00–30:00 window', () => {
-  // the first stack of the game is 0:53, called at 0:43
-  assert.equal(firesBetween('stack', 0, 120)[0], 43);
+  // the camps are empty until 1:00, so the first stack is the 1:53 one,
+  // called at 1:43 — there is nothing to pull out of the box at 0:53
+  assert.equal(firesBetween('stack', 0, 120)[0], 103);
   // the last one is 29:53 (clock 1793), spoken at 1788; 30:53 is outside
   assert.deepEqual(firesBetween('stack', 1700, 1900), [1723, 1783]);
 });
@@ -78,7 +79,7 @@ test('PULL is supports-only, so POS 1 never gets it', () => {
 
 test('role filtering, event by event, at the roles each one declares', () => {
   // STACK: carry and both supports. WISDOM: mid and both supports.
-  assert.deepEqual(firesBetween('stack', 0, 120, 'POS 1'), [43, 103]);
+  assert.deepEqual(firesBetween('stack', 0, 120, 'POS 1'), [103]);
   assert.deepEqual(firesBetween('stack', 0, 120, 'POS 2'), []);
   assert.deepEqual(firesBetween('wisdom', 0, 500, 'POS 2'), [400]);
   assert.deepEqual(firesBetween('wisdom', 0, 500, 'POS 1'), []);
