@@ -1,3 +1,4 @@
+import type { MessageKey } from './i18n';
 import type { ClipId, Locale, Priority, RoleId } from './types';
 
 export interface CallText {
@@ -222,7 +223,10 @@ export interface StateCall {
   text: Record<Locale, CallText>;
 }
 
-export const STATE_CALLS: Record<'sem_buyback' | 'sem_tp', StateCall> = {
+export const STATE_CALLS: Record<
+  'sem_buyback' | 'sem_tp' | 'ult_pronta' | 'item_pronto',
+  StateCall
+> = {
   sem_buyback: {
     id: 'sem_buyback', label: 'NO BUYBACK', priority: 3, clip: 'sem_buyback', cooldown: 180,
     text: {
@@ -235,6 +239,22 @@ export const STATE_CALLS: Record<'sem_buyback' | 'sem_tp', StateCall> = {
     text: {
       'pt-BR': { dry: 'Sem TP', verbose: 'Você está sem TP' },
       en: { dry: 'No TP', verbose: 'You have no TP' },
+    },
+  },
+  ult_pronta: {
+    id: 'ult_pronta', label: 'ULTIMATE READY', priority: 3, clip: 'ult_pronta', cooldown: 30,
+    text: {
+      'pt-BR': { dry: 'Ult pronta', verbose: 'Sua ultimate está pronta' },
+      en: { dry: 'Ult ready', verbose: 'Your ultimate is ready' },
+    },
+  },
+  // One clip for the whole watched list: naming the item would cost the user
+  // six more recordings to say something the inventory already shows.
+  item_pronto: {
+    id: 'item_pronto', label: 'ITEM READY', priority: 3, clip: 'item_pronto', cooldown: 30,
+    text: {
+      'pt-BR': { dry: 'Item pronto', verbose: 'Seu item chave está pronto' },
+      en: { dry: 'Item ready', verbose: 'Your key item is ready' },
     },
   },
 };
@@ -281,11 +301,11 @@ export function mmss(seconds: number): string {
 
 export type Phase = 'LANING' | 'TRANSITION' | 'MID' | 'LATE';
 
-export const PHASES: { id: Phase; label: string; from: number; to: number }[] = [
-  { id: 'LANING', label: 'LANING 0–10', from: 0, to: 600 },
-  { id: 'TRANSITION', label: 'TRANSITION 10–20', from: 600, to: 1200 },
-  { id: 'MID', label: 'MID 20–35', from: 1200, to: 2100 },
-  { id: 'LATE', label: 'LATE 35+', from: 2100, to: Number.MAX_SAFE_INTEGER },
+export const PHASES: { id: Phase; labelKey: MessageKey; from: number; to: number }[] = [
+  { id: 'LANING', labelKey: 'phase.laning', from: 0, to: 600 },
+  { id: 'TRANSITION', labelKey: 'phase.transition', from: 600, to: 1200 },
+  { id: 'MID', labelKey: 'phase.mid', from: 1200, to: 2100 },
+  { id: 'LATE', labelKey: 'phase.late', from: 2100, to: Number.MAX_SAFE_INTEGER },
 ];
 
 export function phaseFor(clock: number): Phase {

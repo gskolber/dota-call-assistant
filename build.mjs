@@ -17,7 +17,9 @@ const targets = [
   // main + preload run in Node/Electron and must not bundle electron itself
   { ...common, entryPoints: ['src/main/main.ts'], outfile: 'dist/main/main.js', platform: 'node', format: 'cjs', external: ['electron'] },
   { ...common, entryPoints: ['src/preload/preload.ts'], outfile: 'dist/preload/preload.js', platform: 'node', format: 'cjs', external: ['electron'] },
+  { ...common, entryPoints: ['src/preload/overlay.ts'], outfile: 'dist/preload/overlay.js', platform: 'node', format: 'cjs', external: ['electron'] },
   { ...common, entryPoints: ['src/renderer/main.ts'], outfile: 'dist/renderer/renderer.js', platform: 'browser', format: 'esm' },
+  { ...common, entryPoints: ['src/renderer/overlay.ts'], outfile: 'dist/renderer/overlay.js', platform: 'browser', format: 'esm' },
 ];
 
 async function copyStatic() {
@@ -25,6 +27,8 @@ async function copyStatic() {
   await cp('src/renderer/index.html', 'dist/renderer/index.html');
   await cp('src/renderer/style.css', 'dist/renderer/style.css');
   await cp('src/renderer/fonts.css', 'dist/renderer/fonts.css');
+  await cp('src/renderer/overlay.html', 'dist/renderer/overlay.html');
+  await cp('src/renderer/overlay.css', 'dist/renderer/overlay.css');
   await cp('src/renderer/fonts', 'dist/renderer/fonts', { recursive: true });
   await cp('build/icon.png', 'dist/renderer/icon.png');
 }

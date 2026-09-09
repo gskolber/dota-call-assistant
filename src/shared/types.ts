@@ -1,5 +1,8 @@
 // Contracts shared by the main process, the preload bridge and the renderer.
 
+import type { UiLanguage } from './i18n';
+
+/** Language of the recorded clips and of what gets spoken. */
 export type Locale = 'pt-BR' | 'en';
 
 export type RoleId = 'POS 1' | 'POS 2' | 'POS 3' | 'POS 4' | 'POS 5';
@@ -14,7 +17,8 @@ export type ClipId =
   | 'night' | 'day' | 'tier_two' | 'tier_three' | 'tormentor'
   | 'aegis_expira' | 'rosh_possivel' | 'rosh_garantido'
   | 'sem_buyback' | 'sem_tp' | 'glyph_pronto'
-  | 'smoke_visto' | 'aegis_inimigo' | 'buyback_inimigo';
+  | 'smoke_visto' | 'aegis_inimigo' | 'buyback_inimigo'
+  | 'ult_pronta' | 'item_pronto';
 
 export type HotkeyName = 'mute' | 'roshan' | 'palette';
 
@@ -26,7 +30,10 @@ export interface Settings {
   /** max spoken calls per rolling minute */
   budget: number;
   volume: number;
-  locale: Locale;
+  /** which clip folder is used and which wording is spoken */
+  voiceLocale: Locale;
+  /** interface language — deliberately independent of the voice */
+  uiLanguage: UiLanguage;
   /** speak with the OS voice when a clip has not been recorded */
   ttsFallback: boolean;
   outputDeviceId: string;
@@ -36,6 +43,30 @@ export interface Settings {
   hotkeys: Record<HotkeyName, string | null>;
   /** event ids silenced by hand, on top of whatever the role set mutes */
   mutedEvents: string[];
+  /** the thin in-game strip; off until asked for, it is not the point of the app */
+  overlayEnabled: boolean;
+  startWithWindows: boolean;
+}
+
+/**
+ * What the overlay strip shows. The renderer owns the engine, so it formats
+ * everything and the main process only forwards it.
+ */
+export interface OverlayState {
+  nextLabel: string | null;
+  nextIn: string | null;   // already formatted, e.g. "1:09"
+  speaking: string | null; // call text while it is being spoken
+  muted: boolean;
+}
+
+/** Reply of a voice pack export or import. `count` is only set on import. */
+export interface VoicePackResult {
+  ok: boolean;
+  /** the user closed the file dialog — not an error, show no toast */
+  canceled?: boolean;
+  count?: number;
+  file?: string;
+  detail?: string;
 }
 
 export interface ClipMeta {
@@ -114,6 +145,20 @@ export interface GsiHero {
   smoked?: boolean;
 }
 
+export interface GsiAbility {
+  name?: string;
+  level?: number;
+  can_cast?: boolean;
+  passive?: boolean;
+  ability_active?: boolean;
+  /** seconds left; 0 means off cooldown */
+  cooldown?: number;
+  ultimate?: boolean;
+}
+
+/** Keyed `ability0`, `ability1`, ... in the order they sit on the hero bar. */
+export type GsiAbilities = Record<string, GsiAbility>;
+
 export interface GsiItem {
   name?: string;
   purchaser?: number;
@@ -130,6 +175,7 @@ export interface GsiPayload {
   map?: GsiMap;
   player?: GsiPlayer;
   hero?: GsiHero;
+  abilities?: GsiAbilities;
   items?: GsiItems;
   previously?: unknown;
   added?: unknown;
@@ -139,6 +185,16 @@ export interface GsiPayload {
 // ── window.api, as exposed by the preload bridge ─────────────────────────
 
 export type Unsubscribe = () => void;
+
+/** Errors crossing the IPC boundary travel as codes; the renderer translates. */
+export type ErrorCode = 'DOTA_NOT_FOUND' | 'WRITE_FAILED';
+
+export interface InstallResult {
+  ok: boolean;
+  file?: string;
+  code?: ErrorCode;
+  detail?: string;
+}
 
 export interface Api {
   window: {
@@ -150,6 +206,15 @@ export interface Api {
   settings: {
     get(): Promise<Settings>;
     set(partial: Partial<Settings>): Promise<Settings>;
+    /** the tray can change settings behind the renderer's back */
+    onChange(handler: (settings: Settings) => void): Unsubscribe;
+  };
+  overlay: {
+    update(state: OverlayState): Promise<void>;
+  };
+  voicePack: {
+    export(locale: Locale): Promise<VoicePackResult>;
+    import(locale: Locale): Promise<VoicePackResult>;
   };
   hotkeys: {
     register(): Promise<Record<HotkeyName, string | null>>;
@@ -164,19 +229,31 @@ export interface Api {
   };
   gsi: {
     status(): Promise<GsiStatus>;
-    install(dir?: string | null): Promise<{ ok: true; file: string } | { ok: false; error: string }>;
+    install(dir?: string | null): Promise<InstallResult>;
     chooseFolder(): Promise<string | null>;
     onPayload(handler: (payload: GsiPayload) => void): Unsubscribe;
     onStatus(handler: (status: GsiStatus) => void): Unsubscribe;
   };
   app: {
     copy(text: string): Promise<boolean>;
-    info(): Promise<{ version: string; userData: string; platform: string; electron: string }>;
+    info(): Promise<{
+      version: string;
+      userData: string;
+      platform: string;
+      electron: string;
+      systemLocale: string;
+    }>;
   };
+}
+
+/** The overlay window gets its own tiny bridge — it can only listen. */
+export interface OverlayApi {
+  onUpdate(handler: (state: OverlayState) => void): Unsubscribe;
 }
 
 declare global {
   interface Window {
     api: Api;
+    overlay: OverlayApi;
   }
 }

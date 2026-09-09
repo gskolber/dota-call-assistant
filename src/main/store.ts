@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 
+import { detectLanguage } from '../shared/i18n';
 import type { Settings } from '../shared/types';
 
 const DEFAULTS: Omit<Settings, 'gsiToken'> & { gsiToken: string } = {
@@ -12,7 +13,8 @@ const DEFAULTS: Omit<Settings, 'gsiToken'> & { gsiToken: string } = {
   muted: false,
   budget: 4,
   volume: 0.7,
-  locale: 'pt-BR',
+  voiceLocale: 'pt-BR',
+  uiLanguage: 'pt-BR',
   ttsFallback: true,
   outputDeviceId: 'default',
   inputDeviceId: 'default',
@@ -20,6 +22,8 @@ const DEFAULTS: Omit<Settings, 'gsiToken'> & { gsiToken: string } = {
   dotaCfgDir: null,
   hotkeys: { mute: 'F9', roshan: 'num1', palette: 'num0' },
   mutedEvents: [],
+  overlayEnabled: false,
+  startWithWindows: false,
 };
 
 let settingsPath: string | null = null;
@@ -33,9 +37,11 @@ function file(): string {
 export function load(): Settings {
   if (cache) return cache;
 
-  let disk: Partial<Settings> = {};
+  // `locale` used to mean both the voice and the interface; it was split in
+  // two, so carry the old value into both halves on first read.
+  let disk: Partial<Settings> & { locale?: Settings['voiceLocale'] } = {};
   try {
-    disk = JSON.parse(fs.readFileSync(file(), 'utf8')) as Partial<Settings>;
+    disk = JSON.parse(fs.readFileSync(file(), 'utf8')) as typeof disk;
   } catch {
     disk = {};
   }
@@ -43,8 +49,11 @@ export function load(): Settings {
   cache = {
     ...DEFAULTS,
     ...disk,
+    voiceLocale: disk.voiceLocale ?? disk.locale ?? DEFAULTS.voiceLocale,
+    uiLanguage: disk.uiLanguage ?? disk.locale ?? detectLanguage(app.getLocale()),
     hotkeys: { ...DEFAULTS.hotkeys, ...(disk.hotkeys ?? {}) },
   };
+  delete (cache as { locale?: unknown }).locale;
 
   if (!cache.gsiToken) {
     cache.gsiToken = randomBytes(16).toString('hex');

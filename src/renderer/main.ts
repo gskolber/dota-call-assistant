@@ -1,4 +1,5 @@
 import { CLIPS, PALETTE, mmss } from '../shared/catalog';
+import { translator, type MessageKey, type Translate, type Vars } from '../shared/i18n';
 import type {
   ClipIndex, GsiPayload, GsiStatus, HotkeyName, ScreenId, Settings,
 } from '../shared/types';
@@ -51,6 +52,9 @@ const state = {
   dirty: true,
 };
 
+/** Rebuilt whenever the interface language changes. */
+let t: Translate = translator('en');
+
 let speakingTimer = 0;
 let paletteTimer = 0;
 let toastTimer = 0;
@@ -64,16 +68,17 @@ function settings(): Settings {
 
 // ── ui plumbing ───────────────────────────────────────────────────────────
 
-function toast(message: string): void {
-  mount(dom.toast, h('div.toast', { text: message }));
+function toast(key: MessageKey, vars?: Vars): void {
+  mount(dom.toast, h('div.toast', { text: t(key, vars) }));
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => mount(dom.toast), 2400);
 }
 
 async function patchSettings(partial: Partial<Settings>): Promise<void> {
   state.settings = await window.api.settings.set(partial);
+  t = translator(state.settings.uiLanguage);
   applyAudioSettings();
-  if (partial.locale) await loadClips();
+  if (partial.voiceLocale) await loadClips();
   state.dirty = true;
 }
 
@@ -81,13 +86,13 @@ function applyAudioSettings(): void {
   const s = settings();
   audio.volume = s.volume;
   audio.verbose = s.verbose;
-  audio.locale = s.locale;
+  audio.locale = s.voiceLocale;
   audio.ttsFallback = s.ttsFallback;
   audio.outputDeviceId = s.outputDeviceId;
 }
 
 async function loadClips(): Promise<void> {
-  const locale = settings().locale;
+  const locale = settings().voiceLocale;
   state.clips = await window.api.clips.list(locale);
   await audio.load(locale, state.clips);
   state.dirty = true;
@@ -135,6 +140,8 @@ function runEngineTick(clock: number): void {
     buybackCost: state.match.buybackCost,
     hasTp: state.match.hasTp,
     alive: !flags().dead,
+    ultimateReadyAt: state.match.ultimateReadyAt,
+    itemsReadyAt: state.match.itemsReadyAt,
   });
 
   for (const call of calls) {
@@ -192,6 +199,7 @@ function context(): Ctx {
     devices: state.devices,
     lastPayload: state.lastPayload,
     capturing: state.capturing,
+    t,
     actions,
   };
 }
@@ -204,15 +212,15 @@ function renderTitlebar(ctx: Ctx): void {
     h('div.titlebar__spacer'),
     h('div.titlebar__meta', {
       text: ctx.match.inMatch
-        ? `${ctx.match.heroName.toUpperCase() || 'IN MATCH'} · ${mmss(ctx.clock)}`
+        ? `${ctx.match.heroName.toUpperCase() || t('title.inMatch')} · ${mmss(ctx.clock)}`
         : ctx.sim.active
-          ? `SIMULATION · ${mmss(ctx.clock)}`
-          : 'TIMINGS VALIDATED · PATCH 7.41e',
+          ? t('title.simulation', { clock: mmss(ctx.clock) })
+          : t('title.timings'),
       style: 'margin-right:12px',
     }),
     h('div', {
       class: ctx.settings.muted ? 'chip chip--alert' : connected ? 'chip' : 'chip chip--off',
-      text: ctx.settings.muted ? 'MUTED' : connected ? 'LIVE' : 'LOCAL ONLY',
+      text: t(ctx.settings.muted ? 'chip.muted' : connected ? 'chip.live' : 'chip.local'),
       style: 'margin-right:8px',
     }),
     h(
@@ -237,7 +245,20 @@ function render(force = false): void {
   renderTitlebar(ctx);
   renderSidebar(dom.sidebar, ctx);
   renderScreen(dom.main, ctx);
+  pushOverlay(ctx);
   state.dirty = false;
+}
+
+/** The overlay is a second window; it only knows what we tell it. */
+function pushOverlay(ctx: Ctx): void {
+  if (!ctx.settings.overlayEnabled) return;
+  const next = engine.queue(state.clock, flags(), 1)[0];
+  void window.api.overlay.update({
+    nextLabel: next?.label ?? null,
+    nextIn: next ? mmss(next.inSeconds) : null,
+    speaking: state.speaking?.text ?? null,
+    muted: ctx.settings.muted,
+  });
 }
 
 // ── quick palette ─────────────────────────────────────────────────────────
@@ -262,7 +283,7 @@ function closePalette(): void {
 
 function renderPalette(): void {
   if (!state.paletteOpen) return;
-  const locale = settings().locale;
+  const locale = settings().voiceLocale;
 
   mount(
     dom.palette,
@@ -273,9 +294,7 @@ function renderPalette(): void {
         'div.palette.palette--overlay',
         {},
         h('div.palette__hint', {
-          text: state.paletteBuffer
-            ? `${state.paletteBuffer}_`
-            : 'DIGITE DUAS LETRAS · FECHA SOZINHO',
+          text: state.paletteBuffer ? `${state.paletteBuffer}_` : t('timers.paletteTyping'),
         }),
         PALETTE.map((entry) =>
           h(
@@ -301,8 +320,8 @@ function paletteKey(key: string): void {
 
   const entry = state.paletteBuffer.length === 2 ? paletteByCode(state.paletteBuffer) : undefined;
   if (entry) {
-    engine.addPaletteTimer(entry, currentClock(), settings().locale);
-    toast(`${entry.code} · ${entry.label[settings().locale]}`);
+    engine.addPaletteTimer(entry, currentClock(), settings().voiceLocale);
+    toast('toast.timerAdded', { code: entry.code, label: entry.label[settings().voiceLocale] });
     closePalette();
     state.dirty = true;
     return;
@@ -314,11 +333,12 @@ function paletteKey(key: string): void {
 
 const record = new RecordDialog(dom.record, {
   getSettings: settings,
+  t: (key, vars) => t(key, vars),
   onSaved: (id, meta) => {
     state.clips = { ...state.clips, [id]: meta };
     void loadClips();
     void refreshDevices();
-    toast(`CLIPE ${id} SALVO`);
+    toast('toast.clipSaved', { id });
   },
   toast,
 });
@@ -339,12 +359,12 @@ const actions: Actions = {
     const muted = !settings().muted;
     if (muted) audio.stop();
     void patchSettings({ muted }).then(() => render(true));
-    toast(muted ? 'MUTED' : 'AUDIO ON');
+    toast(muted ? 'toast.muted' : 'toast.audioOn');
   },
 
   toggleSim: () => {
     if (state.match.inMatch) {
-      toast('PARTIDA AO VIVO — SIMULAÇÃO DESLIGADA');
+      toast('toast.liveMatch');
       return;
     }
     if (!state.sim.active) {
@@ -365,10 +385,10 @@ const actions: Actions = {
   markRoshan: () => {
     if (engine.getRoshanMark() === null) {
       engine.markRoshan(currentClock());
-      toast(`ROSHAN MARCADO ${mmss(currentClock())}`);
+      toast('toast.roshanMarked', { time: mmss(currentClock()) });
     } else {
       engine.clearRoshan();
-      toast('ROSHAN LIMPO');
+      toast('toast.roshanCleared');
     }
     state.dirty = true;
   },
@@ -380,34 +400,26 @@ const actions: Actions = {
 
   previewClip: (id) => {
     void audio.preview(id).then((result) => {
-      if (result.source === 'silent') toast('SEM CLIPE E SEM TTS');
+      if (result.source === 'silent') toast('toast.noClipNoTts');
     });
   },
   recordClip: (id) => record.open([id]),
   recordMissing: () => record.open(CLIPS.filter((c) => !state.clips[c.id]).map((c) => c.id)),
   deleteClip: (id) => {
-    void window.api.clips.remove(settings().locale, id).then(async () => {
+    void window.api.clips.remove(settings().voiceLocale, id).then(async () => {
       await loadClips();
-      toast(`CLIPE ${id} APAGADO`);
+      toast('toast.clipDeleted', { id });
       render(true);
     });
   },
-  revealClips: () => void window.api.clips.reveal(settings().locale),
+  revealClips: () => void window.api.clips.reveal(settings().voiceLocale),
 
   installGsi: () => {
-    void window.api.gsi.install(null).then(async (result) => {
-      toast(result.ok ? 'CONFIG ESCRITA — REINICIE O DOTA' : result.error.toUpperCase());
-      state.gsi = await window.api.gsi.status();
-      render(true);
-    });
+    void window.api.gsi.install(null).then(reportInstall);
   },
   chooseFolder: () => {
     void window.api.gsi.chooseFolder().then(async (dir) => {
-      if (!dir) return;
-      const result = await window.api.gsi.install(dir);
-      toast(result.ok ? 'CONFIG ESCRITA — REINICIE O DOTA' : result.error.toUpperCase());
-      state.gsi = await window.api.gsi.status();
-      render(true);
+      if (dir) await reportInstall(await window.api.gsi.install(dir));
     });
   },
   captureHotkey: (name) => {
@@ -420,11 +432,39 @@ const actions: Actions = {
     void applyHotkey(name, null);
   },
 
-  copy: (text, what) => {
-    void window.api.app.copy(text);
-    toast(`${what.toUpperCase()} COPIADO`);
+  exportVoicePack: () => {
+    void window.api.voicePack.export(settings().voiceLocale).then(reportVoicePack);
+  },
+  importVoicePack: () => {
+    void window.api.voicePack.import(settings().voiceLocale).then(async (result) => {
+      if (result.ok) await loadClips();
+      reportVoicePack(result);
+    });
+  },
+
+  copy: (value, what) => {
+    void window.api.app.copy(value);
+    toast('toast.copied', { what: what.toUpperCase() });
   },
 };
+
+/** Export and import share one shape; only the success message differs. */
+function reportVoicePack(result: Awaited<ReturnType<typeof window.api.voicePack.export>>): void {
+  if (result.canceled) return;
+  if (result.ok && result.count !== undefined) toast('toast.packImported', { count: result.count });
+  else if (result.ok) toast('toast.packExported');
+  else if (result.detail === 'EMPTY') toast('toast.packEmpty');
+  else toast('toast.packFailed');
+  render(true);
+}
+
+/** Surfaces the outcome of writing the GSI config, translating the error code. */
+async function reportInstall(result: Awaited<ReturnType<typeof window.api.gsi.install>>): Promise<void> {
+  if (result.ok) toast('toast.configWritten');
+  else if (result.code) toast(`error.${result.code}` as MessageKey, { detail: result.detail ?? '' });
+  state.gsi = await window.api.gsi.status();
+  render(true);
+}
 
 /** Translates a key press into an Electron accelerator, or null if unusable. */
 function acceleratorFor(event: KeyboardEvent): string | null {
@@ -456,10 +496,10 @@ async function applyHotkey(name: HotkeyName, accelerator: string | null): Promis
   await patchSettings({ hotkeys: { ...settings().hotkeys, [name]: accelerator } });
   const registered = await window.api.hotkeys.register();
   if (accelerator && !registered[name]) {
-    toast(`${accelerator.toUpperCase()} JÁ ESTÁ EM USO NO WINDOWS`);
+    toast('toast.hotkeyInUse', { key: accelerator.toUpperCase() });
     await patchSettings({ hotkeys: { ...settings().hotkeys, [name]: null } });
   } else if (accelerator) {
-    toast(`${name.toUpperCase()} · ${accelerator.toUpperCase()}`);
+    toast('toast.hotkeySet', { name: name.toUpperCase(), key: accelerator.toUpperCase() });
   }
   render(true);
 }
@@ -525,6 +565,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
 async function boot(): Promise<void> {
   state.settings = await window.api.settings.get();
+  t = translator(state.settings.uiLanguage);
   applyAudioSettings();
 
   state.gsi = await window.api.gsi.status();
@@ -537,6 +578,14 @@ async function boot(): Promise<void> {
     state.dirty = true;
   });
   window.api.hotkeys.onPress(onHotkey);
+  // the tray can flip muting and the overlay behind our back
+  window.api.settings.onChange((next) => {
+    state.settings = next;
+    t = translator(next.uiLanguage);
+    applyAudioSettings();
+    state.dirty = true;
+    render(true);
+  });
   window.api.window.onState(({ maximized }) => {
     state.maximized = maximized;
     state.dirty = true;

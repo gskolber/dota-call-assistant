@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    # Windows on purpose: building the NSIS installer from Linux needs Wine
+    # for the rcedit step that stamps the icon and metadata into the .exe.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # esbuild bundles, then electron-builder writes the NSIS installer and
+      # the portable .exe into release/.
+      - run: npm run dist
+
+      - name: Publish the installer and the portable exe
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.exe

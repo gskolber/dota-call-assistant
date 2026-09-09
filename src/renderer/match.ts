@@ -1,6 +1,6 @@
 // Turns raw GSI snapshots into the handful of facts the app actually needs.
 
-import type { GsiItem, GsiPayload } from '../shared/types';
+import type { GsiAbilities, GsiAbility, GsiItem, GsiPayload } from '../shared/types';
 
 export interface MatchState {
   connected: boolean;
@@ -20,6 +20,12 @@ export interface MatchState {
   sentries: number;
   smokes: number;
   dusts: number;
+  /** ultimate is levelled, off cooldown and castable right now */
+  ultimateReady: boolean;
+  /** clock second the ultimate last came back from a cooldown worth a call */
+  ultimateReadyAt: number | null;
+  /** same, per watched item name */
+  itemsReadyAt: Record<string, number>;
   /** clock second at which the carried sentry count last went down */
   lastSentryPlacedAt: number | null;
   lastPayloadAt: number | null;
@@ -42,6 +48,9 @@ export const EMPTY_MATCH: MatchState = {
   sentries: 0,
   smokes: 0,
   dusts: 0,
+  ultimateReady: false,
+  ultimateReadyAt: null,
+  itemsReadyAt: {},
   lastSentryPlacedAt: null,
   lastPayloadAt: null,
 };
@@ -51,6 +60,24 @@ const PLAYING_STATES = new Set([
   'DOTA_GAMERULES_STATE_PRE_GAME',
   'DOTA_GAMERULES_STATE_GAME_IN_PROGRESS',
 ]);
+
+/** Items whose downtime changes what the team can do; the rest is noise. */
+const WATCHED_ITEMS = [
+  'item_black_king_bar',
+  'item_blink',
+  'item_glimmer_cape',
+  'item_force_staff',
+  'item_ghost',
+  'item_pipe',
+];
+
+/**
+ * A shorter downtime than this is not worth interrupting the player for: an
+ * ultimate reads as cooldown 0 the instant it is levelled, and the blink's
+ * damage lockout is over before anyone could act on the call.
+ */
+const ULTIMATE_MIN_COOLDOWN = 30;
+const ITEM_MIN_COOLDOWN = 12;
 
 function charges(item: GsiItem | undefined): number {
   if (!item) return 0;
@@ -75,8 +102,25 @@ function hasItem(items: Record<string, GsiItem> | undefined, names: string[]): b
   );
 }
 
+function findItem(items: Record<string, GsiItem> | undefined, name: string): GsiItem | undefined {
+  if (!items) return undefined;
+  for (const [slot, item] of Object.entries(items)) {
+    if (slot.startsWith('stash')) continue;
+    if (item?.name === name) return item;
+  }
+  return undefined;
+}
+
+function ultimateOf(abilities: GsiAbilities | undefined): GsiAbility | undefined {
+  if (!abilities) return undefined;
+  return Object.values(abilities).find((ability) => ability?.ultimate === true);
+}
+
 export class MatchTracker {
   private state: MatchState = { ...EMPTY_MATCH };
+
+  /** Longest cooldown seen in the run each key is currently serving. */
+  private cooldownPeak = new Map<string, number>();
 
   get current(): MatchState {
     return this.state;
@@ -84,6 +128,29 @@ export class MatchTracker {
 
   reset(): void {
     this.state = { ...EMPTY_MATCH };
+    this.cooldownPeak.clear();
+  }
+
+  /**
+   * Marks the clock second a thing came back up, but only after a downtime
+   * long enough to matter - the peak is remembered until the thing is usable
+   * again, so a full cooldown followed by an empty mana bar still counts.
+   */
+  private readyMark(
+    key: string,
+    cooldown: number,
+    usable: boolean,
+    minimum: number,
+    clock: number,
+    previous: number | null,
+  ): number | null {
+    const peak = Math.max(this.cooldownPeak.get(key) ?? 0, cooldown);
+    if (cooldown > 0 || !usable) {
+      this.cooldownPeak.set(key, peak);
+      return previous;
+    }
+    this.cooldownPeak.delete(key);
+    return peak >= minimum ? clock : previous;
   }
 
   /** Returns the new state; `inMatch` flips false when Dota is at the menu. */
@@ -104,6 +171,34 @@ export class MatchTracker {
     const clock = map?.clock_time ?? 0;
     const sentryDropped = playing && previous.inMatch && sentries < previous.sentries;
 
+    const ultimate = playing ? ultimateOf(payload.abilities) : undefined;
+    const ultimateReady = !!ultimate
+      && (ultimate.level ?? 0) > 0
+      && (ultimate.cooldown ?? 0) === 0
+      && ultimate.can_cast !== false;
+    const ultimateReadyAt = ultimate
+      ? this.readyMark(
+        'ultimate', ultimate.cooldown ?? 0, ultimateReady,
+        ULTIMATE_MIN_COOLDOWN, clock, previous.ultimateReadyAt,
+      )
+      : previous.ultimateReadyAt;
+
+    const itemsReadyAt = { ...previous.itemsReadyAt };
+    for (const name of WATCHED_ITEMS) {
+      const item = playing ? findItem(items, name) : undefined;
+      // an item that is gone from the bag starts its next cooldown from scratch
+      if (!item) {
+        this.cooldownPeak.delete(name);
+        continue;
+      }
+      const cooldown = item.cooldown ?? 0;
+      const mark = this.readyMark(
+        name, cooldown, cooldown === 0 && item.can_cast !== false,
+        ITEM_MIN_COOLDOWN, clock, itemsReadyAt[name] ?? null,
+      );
+      if (mark !== null) itemsReadyAt[name] = mark;
+    }
+
     this.state = {
       connected: true,
       inMatch: playing,
@@ -121,6 +216,9 @@ export class MatchTracker {
       sentries,
       smokes: countItem(items, 'item_smoke_of_deceit'),
       dusts: countItem(items, 'item_dust'),
+      ultimateReady,
+      ultimateReadyAt,
+      itemsReadyAt,
       lastSentryPlacedAt: sentryDropped ? clock : previous.lastSentryPlacedAt,
       lastPayloadAt: Date.now(),
     };
@@ -128,6 +226,9 @@ export class MatchTracker {
     // a fresh match wipes the "since" markers
     if (playing && clock < previous.clock - 30) {
       this.state.lastSentryPlacedAt = null;
+      this.state.ultimateReadyAt = null;
+      this.state.itemsReadyAt = {};
+      this.cooldownPeak.clear();
     }
 
     return this.state;

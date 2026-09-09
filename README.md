@@ -44,7 +44,30 @@ Outros comandos:
 | `npm run dev` | Roda com o DevTools aberto |
 | `npm run watch` | Recompila a cada alteração (rode `npx electron .` em outro terminal) |
 | `npm run typecheck` | `tsc --noEmit` no processo principal e no renderer |
+| `npm test` | testes do engine de calls (sem build, sem dependência) |
 | `npm run pack` | Empacota sem gerar instalador |
+
+---
+
+## Idiomas
+
+Duas configurações separadas, na tela `05 · ÁUDIO`:
+
+- **Voz** — de qual pasta saem os clipes e qual texto é falado (`pt-BR`, `en`)
+- **Interface** — o idioma da tela (`pt-BR`, `en`)
+
+São independentes de propósito: dá para ter a interface em inglês com as calls
+em português. No primeiro boot o app detecta o idioma do sistema.
+
+### Traduzir para outro idioma
+
+Tudo vive em [`src/shared/i18n.ts`](src/shared/i18n.ts). O objeto `en` é a
+fonte da verdade dos tipos: acrescente o novo idioma em `UiLanguage` e em
+`MESSAGES`, e o `tsc` aponta uma a uma toda chave que faltar. Nenhuma string
+de interface fica espalhada pelo código.
+
+Para uma **voz** nova, o trabalho é em `src/shared/catalog.ts`: cada evento
+carrega o próprio `text` com as versões curta e longa por locale.
 
 ---
 
@@ -82,6 +105,33 @@ Os clipes ficam em WAV mono, por locale:
 
 O botão **PASTA** abre esse diretório. Dá pra trocar os arquivos na mão, desde
 que mantenha o nome (`<id>.wav`).
+
+---
+
+## Overlay, bandeja e início automático
+
+Tudo em `05 · ÁUDIO`, tudo **desligado por padrão**.
+
+O **overlay** é uma faixa de 320×64 no topo da tela com a próxima call e o
+tempo. Ele atravessa o clique, não entra no Alt+Tab e não rouba foco — a ideia
+é que você esqueça que ele existe. Só aparece com o Dota em janela ou
+borderless; em tela cheia exclusiva o Windows não deixa nada por cima.
+
+Fechar a janela manda o app para a **bandeja**, de onde dá para silenciar,
+ligar o overlay e sair de verdade. **Iniciar com o Windows** sobe o app já
+recolhido na bandeja, sem janela na sua cara.
+
+---
+
+## Pacote de voz
+
+`05 · ÁUDIO` → **EXPORTAR** gera um `.zip` com as suas gravações; **IMPORTAR**
+lê um. Serve para levar a sua voz para outra máquina — ou para alguém baixar a
+sua e usar no lugar da voz do Windows.
+
+O leitor trata o arquivo como hostil: valida CRC e tamanho de cada entrada,
+recusa nome com caminho (`../`, `/`, subpasta), ignora clipe desconhecido e
+corta entrada acima de 8 MB. Um `.zip` da internet não é confiável.
 
 ---
 
@@ -135,8 +185,11 @@ eventos individuais.
 | Tormentor | 20:00 | 30s |
 | Aegis expira / Rosh possível / garantido | +5:00 / +8:00 / +11:00 da marcação | 10s |
 
-Duas calls saem do estado, não do relógio: **sem buyback** (depois dos 20:00,
-vivo, ouro abaixo do custo) e **sem TP** (depois dos 2:00).
+Além dessas, quatro calls saem do **estado**, não do relógio: **sem buyback**
+(depois dos 20:00, vivo, ouro abaixo do custo), **sem TP** (depois dos 2:00),
+**ultimate pronta** e **item pronto**. As duas últimas falam só na transição
+de cooldown para pronto, e só se a espera valeu a pena — 30s para a ultimate,
+12s para os itens, senão blink e force staff nunca abririam a boca.
 
 ---
 
@@ -152,11 +205,12 @@ entrar em partida.
 
 ```
 src/
-  shared/      catálogo de eventos e clipes, tipos do IPC e do payload GSI
+  shared/      catálogo de eventos e clipes, textos da interface, tipos do IPC
   main/        processo principal: servidor GSI, atalhos, config do Dota, arquivos
   preload/     ponte de IPC (contextIsolation ligado)
-  renderer/    engine de calls, áudio, gravador e as 7 telas
-build.mjs      esbuild: 3 bundles + estáticos
+  renderer/    engine de calls, áudio, gravador, overlay e as 7 telas
+tests/         testes do engine, em node:test puro
+build.mjs      esbuild: bundles + estáticos
 ```
 
 O renderer não usa framework: DOM direto, reconstruído a cada tick.
@@ -169,5 +223,9 @@ O renderer não usa framework: DOM direto, reconstruído a cada tick.
   de disciplina só enxerga o que está no seu inventário.
 - Roshan e os timers da paleta são manuais por definição: o jogo não conta isso
   para ninguém.
-- Overlay dentro do jogo não existe — o Dota em tela cheia exclusiva não
-  aceitaria. O app é feito para ser ouvido, não olhado, durante a partida.
+- O overlay não aparece com o Dota em tela cheia exclusiva. Use janela ou
+  borderless, ou simplesmente deixe desligado: o app foi feito para ser
+  ouvido, não olhado, durante a partida.
+- Cooldown de ultimate e item exige `abilities` na config da GSI. Se você
+  configurou antes desta versão, clique em **WRITE CONFIG** de novo e reinicie
+  o Dota.

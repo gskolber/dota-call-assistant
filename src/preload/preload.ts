@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { Api, ClipId, HotkeyName, Locale, Settings, Unsubscribe } from '../shared/types';
+import type {
+  Api, ClipId, HotkeyName, Locale, OverlayState, Settings, Unsubscribe,
+} from '../shared/types';
 
 function on<T>(channel: string): (handler: (payload: T) => void) => Unsubscribe {
   return (handler) => {
@@ -21,6 +23,16 @@ const api: Api = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (partial: Partial<Settings>) => ipcRenderer.invoke('settings:set', partial),
+    onChange: on<Settings>('settings:changed'),
+  },
+
+  overlay: {
+    update: (state: OverlayState) => ipcRenderer.invoke('overlay:update', state),
+  },
+
+  voicePack: {
+    export: (locale: Locale) => ipcRenderer.invoke('voicepack:export', locale),
+    import: (locale: Locale) => ipcRenderer.invoke('voicepack:import', locale),
   },
 
   hotkeys: {

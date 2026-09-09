@@ -17,12 +17,12 @@ export function root(): string {
 }
 
 export function localeDir(locale: Locale): string {
-  if (!SAFE_LOCALE.test(locale)) throw new Error('locale inválido');
+  if (!SAFE_LOCALE.test(locale)) throw new Error('invalid locale');
   return path.join(root(), locale);
 }
 
 function clipFile(locale: Locale, id: ClipId): string {
-  if (!SAFE_ID.test(id)) throw new Error('clip id inválido');
+  if (!SAFE_ID.test(id)) throw new Error('invalid clip id');
   return path.join(localeDir(locale), `${id}.wav`);
 }
 

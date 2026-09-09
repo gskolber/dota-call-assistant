@@ -1,0 +1,81 @@
+@import './fonts.css';
+
+/* Same ink and acid as the app, but as little of both as possible: the strip
+   is read out of the corner of an eye, mid-fight, and nothing more. */
+:root {
+  --ink: #0a0a0a;
+  --acid: #e8ff2f;
+  --alert: #ff3b14;
+  --grey: #8c897f;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--mono);
+  /* the window is click-through anyway; this kills the caret and selection */
+  user-select: none;
+  cursor: default;
+}
+
+.strip {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: rgba(10, 10, 10, 0.82);
+  border: 2px solid var(--ink);
+  border-left: 6px solid var(--acid);
+  color: var(--acid);
+}
+
+.strip--muted { border-left-color: var(--alert); color: var(--grey); }
+
+.strip__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strip__in {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #e8e6e0;
+  font-variant-numeric: tabular-nums;
+}
+
+.strip--muted .strip__in { color: var(--grey); }
+
+/* While a call is being spoken the text is the call itself, flashing so the
+   eye catches it without having to read. */
+.strip--speaking { animation: flash-bg 420ms steps(1, end) infinite; }
+
+/* the text inverts with the background, in step, so it stays readable in
+   both halves of the flash instead of vanishing into the acid */
+.strip--speaking .strip__label,
+.strip--speaking .strip__in {
+  animation: flash-fg 420ms steps(1, end) infinite;
+}
+
+@keyframes flash-bg {
+  0%, 49% { background: rgba(10, 10, 10, 0.82); }
+  50%, 100% { background: var(--acid); }
+}
+
+@keyframes flash-fg {
+  0%, 49% { color: var(--acid); }
+  50%, 100% { color: var(--ink); }
+}

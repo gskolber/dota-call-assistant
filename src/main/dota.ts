@@ -101,7 +101,7 @@ export function cfgBody(token: string, port: number): string {
     '        "map"           "1"',
     '        "player"        "1"',
     '        "hero"          "1"',
-    '        "abilities"     "0"',
+    '        "abilities"     "1"',
     '        "items"         "1"',
     '        "buildings"     "0"',
     '        "draft"         "0"',
@@ -114,7 +114,7 @@ export function cfgBody(token: string, port: number): string {
 
 export function install(dir: string, token: string, port: number): string {
   const target = normaliseTarget(dir);
-  if (!target) throw new Error('Pasta do Dota 2 não encontrada.');
+  if (!target) throw new Error('target directory could not be resolved');
   fs.mkdirSync(target, { recursive: true });
   const file = path.join(target, CFG_NAME);
   fs.writeFileSync(file, cfgBody(token, port), 'utf8');

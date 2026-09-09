@@ -44,7 +44,7 @@ export class GsiServer extends EventEmitter<GsiEvents> {
     server.on('error', (err: NodeJS.ErrnoException) => {
       this.stats.listening = false;
       this.stats.error = err.code === 'EADDRINUSE'
-        ? `A porta ${PORT} já está ocupada por outro programa.`
+        ? `port ${PORT} is already taken by another program`
         : err.message;
       this.emit('status', this.status());
     });

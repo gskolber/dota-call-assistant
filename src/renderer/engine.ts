@@ -37,6 +37,11 @@ export interface QueueItem {
   inSeconds: number;
 }
 
+/** Post-speak cooldown per state call, so `commit` can shorten a dropped one. */
+const STATE_COOLDOWNS = new Map<string, number>(
+  Object.values(STATE_CALLS).map((call) => [call.id, call.cooldown]),
+);
+
 export interface ActiveTimer {
   key: string;
   id: string;
@@ -49,6 +54,8 @@ export interface ActiveTimer {
   text: Record<Locale, CallText>;
   source: 'roshan' | 'palette';
   spoken: boolean;
+  /** last clock second we tried to speak it, to bound retries within the grace */
+  attemptedAt?: number;
 }
 
 export interface EngineFlags {
@@ -68,10 +75,25 @@ export interface StateInputs {
   buybackCost: number;
   hasTp: boolean;
   alive: boolean;
+  /** clock second the ultimate last came back up, from MatchState */
+  ultimateReadyAt?: number | null;
+  /** same, per watched item name */
+  itemsReadyAt?: Record<string, number>;
 }
 
 /** How far back the per-minute call budget looks. */
 const BUDGET_WINDOW = 60;
+
+/**
+ * A call that was raised but dropped retries this soon instead of serving the
+ * full post-speak cooldown. A teamfight with the budget full is exactly when
+ * you most want to hear that you have no TP, and the cooldown is there to stop
+ * repetition after being heard — not to punish a call for losing a tick.
+ */
+const RETRY_AFTER_DROP = 8;
+
+/** How long a manual timer keeps trying after its fire second passes. */
+const TIMER_GRACE = 8;
 
 /** Only one call is ever spoken per second; the rest of the tick is dropped. */
 export class CallEngine {
@@ -80,6 +102,8 @@ export class CallEngine {
   private roshanMark: number | null = null;
   private lastStateCall = new Map<string, number>();
   private spokenAt: number[] = [];
+  private seenUltimateReadyAt: number | null = null;
+  private seenItemReadyAt = new Map<string, number>();
 
   reset(): void {
     this.log = [];
@@ -87,6 +111,8 @@ export class CallEngine {
     this.roshanMark = null;
     this.lastStateCall.clear();
     this.spokenAt = [];
+    // The readiness marks deliberately survive: they exist to recognise a
+    // transition, and forgetting them makes the next tick call a stale one.
   }
 
   getLog(): readonly LogEntry[] {
@@ -201,6 +227,7 @@ export class CallEngine {
     }
 
     for (const timer of this.timers) {
+      if (flags.mutedEvents.includes(timer.id)) continue;
       const fireAt = timer.endsAt - timer.lead;
       if (fireAt <= clock) continue;
       items.push({
@@ -242,8 +269,13 @@ export class CallEngine {
     }
 
     for (const timer of this.timers) {
-      if (timer.spoken || clock !== timer.endsAt - timer.lead) continue;
-      timer.spoken = true;
+      if (timer.spoken || flags.mutedEvents.includes(timer.id)) continue;
+      const fireAt = timer.endsAt - timer.lead;
+      // Keep trying for a few seconds: losing a Roshan call to a one-second
+      // pause used to silence it for good.
+      if (clock < fireAt || clock > fireAt + TIMER_GRACE) continue;
+      if (timer.attemptedAt !== undefined && clock - timer.attemptedAt < 2) continue;
+      timer.attemptedAt = clock;
       due.push({
         id: timer.id,
         label: timer.label,
@@ -257,10 +289,33 @@ export class CallEngine {
     // timers that have run out stop cluttering the panel
     this.timers = this.timers.filter((t) => t.endsAt > clock);
 
-    due.push(...this.stateCalls(clock, flags, state));
+    const raised = this.stateCalls(clock, flags, state);
+    due.push(...raised);
 
     due.sort((a, b) => b.priority - a.priority);
-    return this.applyBudget(clock, due, flags);
+    const spoken = this.applyBudget(clock, due, flags);
+    this.commit(clock, raised, spoken);
+    return spoken;
+  }
+
+  /**
+   * Rate limiters are only earned by calls that were actually heard. A dropped
+   * one comes back shortly instead of serving its full cooldown in silence.
+   */
+  private commit(clock: number, raised: Call[], spoken: Call[]): void {
+    const said = new Set(spoken.map((call) => call.id));
+
+    for (const call of raised) {
+      const cooldown = STATE_COOLDOWNS.get(call.id) ?? 0;
+      this.lastStateCall.set(
+        call.id,
+        said.has(call.id) ? clock : clock - cooldown + RETRY_AFTER_DROP,
+      );
+    }
+
+    for (const timer of this.timers) {
+      if (said.has(timer.id)) timer.spoken = true;
+    }
   }
 
   /** Calls raised by reading the live state instead of the clock. */
@@ -271,7 +326,7 @@ export class CallEngine {
       if (!condition || flags.mutedEvents.includes(call.id)) return;
       const last = this.lastStateCall.get(call.id);
       if (last !== undefined && clock - last < call.cooldown) return;
-      this.lastStateCall.set(call.id, clock);
+      // the cooldown is committed in `commit`, once we know it was spoken
       out.push({ id: call.id, label: call.label, priority: call.priority, clip: call.clip, text: call.text });
     };
 
@@ -283,6 +338,22 @@ export class CallEngine {
       STATE_CALLS.sem_tp,
       clock > 120 && state.alive && !state.hasTp,
     );
+
+    // Marks only move when something came back from a downtime long enough to
+    // matter, so the transition is the whole condition; seeing one is enough
+    // to consume it, even if the call ends up dropped.
+    const ultimateMark = state.ultimateReadyAt ?? null;
+    const ultimateCameUp = ultimateMark !== null && ultimateMark !== this.seenUltimateReadyAt;
+    this.seenUltimateReadyAt = ultimateMark;
+    raise(STATE_CALLS.ult_pronta, ultimateCameUp && state.alive);
+
+    let itemCameUp = false;
+    for (const [name, at] of Object.entries(state.itemsReadyAt ?? {})) {
+      if (this.seenItemReadyAt.get(name) === at) continue;
+      this.seenItemReadyAt.set(name, at);
+      itemCameUp = true;
+    }
+    raise(STATE_CALLS.item_pronto, itemCameUp && state.alive);
 
     return out;
   }

@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "lib": ["ES2022", "DOM"], "types": ["node"], "allowImportingTsExtensions": true },
+  "include": ["**/*.ts", "../src/renderer/**/*.ts", "../src/shared/**/*.ts"]
+}

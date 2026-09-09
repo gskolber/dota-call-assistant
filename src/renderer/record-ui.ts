@@ -2,6 +2,7 @@
 // screen, hold or press record, listen back, save or retake.
 
 import { CLIP_BY_ID } from '../shared/catalog';
+import type { MessageKey, Translate } from '../shared/i18n';
 import type { ClipId, ClipMeta, Locale, Settings } from '../shared/types';
 import { h, mount } from './dom';
 import { VoiceRecorder } from './recorder';
@@ -13,8 +14,9 @@ type Stage = 'ready' | 'recording' | 'review';
 
 export interface RecordDeps {
   getSettings(): Settings;
+  t: Translate;
   onSaved(id: ClipId, meta: ClipMeta): void;
-  toast(message: string): void;
+  toast(key: MessageKey, vars?: Record<string, string | number>): void;
 }
 
 export class RecordDialog {
@@ -36,7 +38,7 @@ export class RecordDialog {
 
   open(ids: ClipId[]): void {
     if (!ids.length) {
-      this.deps.toast('NADA A GRAVAR — TUDO JÁ TEM CLIPE');
+      this.deps.toast('toast.nothingToRecord');
       return;
     }
     this.queue = ids;
@@ -109,7 +111,7 @@ export class RecordDialog {
       });
     } catch {
       this.stage = 'ready';
-      this.deps.toast('MICROFONE NEGADO OU INDISPONÍVEL');
+      this.deps.toast('toast.micDenied');
       this.render();
     } finally {
       this.busy = false;
@@ -124,7 +126,7 @@ export class RecordDialog {
     const take = await this.recorder.stop();
     if (!take) {
       this.stage = 'ready';
-      this.deps.toast('NADA FOI CAPTURADO — VERIFIQUE O MICROFONE');
+      this.deps.toast('toast.nothingCaptured');
       this.render();
       return;
     }
@@ -149,7 +151,7 @@ export class RecordDialog {
 
     try {
       const meta = await window.api.clips.save(
-        this.deps.getSettings().locale,
+        this.deps.getSettings().voiceLocale,
         id,
         this.take.bytes,
         this.take.durationMs,
@@ -157,7 +159,7 @@ export class RecordDialog {
       this.deps.onSaved(id, meta);
       this.next();
     } catch {
-      this.deps.toast('NÃO FOI POSSÍVEL SALVAR O CLIPE');
+      this.deps.toast('toast.cannotSave');
     } finally {
       this.busy = false;
       this.render();
@@ -167,7 +169,7 @@ export class RecordDialog {
   private next(): void {
     this.resetTake();
     if (this.cursor + 1 >= this.queue.length) {
-      this.deps.toast('GRAVAÇÕES CONCLUÍDAS');
+      this.deps.toast('toast.recordingsDone');
       this.close();
       return;
     }
@@ -204,8 +206,9 @@ export class RecordDialog {
     }
 
     const settings = this.deps.getSettings();
-    const dry = this.lineFor(id, settings.locale, false);
-    const verbose = this.lineFor(id, settings.locale, true);
+    const t = this.deps.t;
+    const dry = this.lineFor(id, settings.voiceLocale, false);
+    const verbose = this.lineFor(id, settings.voiceLocale, true);
 
     mount(
       this.host,
@@ -218,19 +221,19 @@ export class RecordDialog {
           h(
             'div.modal__head',
             {},
-            h('div', { text: `GRAVAR · ${id}` }),
+            h('div', { text: t('record.title', { clip: id }) }),
             h('div', { style: 'flex:1' }),
             h('div', { text: `${this.cursor + 1}/${this.queue.length}` }),
           ),
           h(
             'div.modal__body',
             {},
-            h('div.label', { text: `DIGA ISTO · ${settings.locale}` }),
+            h('div.label', { text: t('record.sayThis', { locale: settings.voiceLocale }) }),
             h('div.say', { text: settings.verbose ? verbose : dry }),
             h('div.hint', {
               text: settings.verbose
-                ? `Versão curta desta call: "${dry}"`
-                : `Versão longa desta call: "${verbose}"`,
+                ? t('record.shortIs', { text: dry })
+                : t('record.longIs', { text: verbose }),
             }),
             h(
               'div.level',
@@ -241,11 +244,13 @@ export class RecordDialog {
               'div',
               { style: 'display:flex;align-items:center;gap:12px' },
               h('div.label', {
-                text: this.stage === 'recording'
-                  ? 'GRAVANDO — ESPAÇO PARA PARAR'
-                  : this.stage === 'review'
-                    ? 'OUÇA E SALVE — ENTER'
-                    : 'ESPAÇO PARA GRAVAR · MÁX 5s',
+                text: t(
+                  this.stage === 'recording'
+                    ? 'record.recording'
+                    : this.stage === 'review'
+                      ? 'record.review'
+                      : 'record.ready',
+                ),
               }),
               h('div', { style: 'flex:1' }),
               h('div', {
@@ -256,7 +261,7 @@ export class RecordDialog {
             ),
             this.take
               ? h('div.hint', {
-                  text: `Aparado e normalizado para ${(this.take.durationMs / 1000).toFixed(2)}s.`,
+                  text: t('record.trimmed', { seconds: (this.take.durationMs / 1000).toFixed(2) }),
                 })
               : null,
           ),
@@ -264,27 +269,27 @@ export class RecordDialog {
             'div.modal__foot',
             {},
             this.stage === 'recording'
-              ? h('button.btn.btn--alert', { text: 'PARAR', onClick: () => void this.stopRecording() })
+              ? h('button.btn.btn--alert', { text: t('record.stop'), onClick: () => void this.stopRecording() })
               : h('button.btn', {
-                  text: this.stage === 'review' ? 'REGRAVAR' : 'GRAVAR',
+                  text: t(this.stage === 'review' ? 'record.rerecord' : 'record.record'),
                   onClick: () => void this.startRecording(),
                 }),
             this.stage === 'review'
-              ? h('button.btn', { text: 'OUVIR', onClick: () => void this.playTake() })
+              ? h('button.btn', { text: t('record.listen'), onClick: () => void this.playTake() })
               : null,
             this.stage === 'review'
-              ? h('button.btn.btn--on', { text: 'SALVAR', onClick: () => void this.save() })
+              ? h('button.btn.btn--on', { text: t('record.save'), onClick: () => void this.save() })
               : null,
             this.queue.length > 1
               ? h('button.btn', {
-                  text: 'PULAR',
+                  text: t('record.skip'),
                   onClick: () => {
                     this.next();
                     this.render();
                   },
                 })
               : null,
-            h('button.btn', { text: 'FECHAR', onClick: () => this.close() }),
+            h('button.btn', { text: t('record.close'), onClick: () => this.close() }),
           ),
         ),
       ),

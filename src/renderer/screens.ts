@@ -1,7 +1,8 @@
 import {
-  CLIPS, EVENTS, PALETTE, PHASES, PHASE_FOCUS, ROLES,
+  CLIPS, EVENTS, PALETTE, PHASES, PHASE_FOCUS, ROLES, STATE_CALLS,
   eventAppliesToRole, mmss, phaseFor,
 } from '../shared/catalog';
+import { UI_LANGUAGES, type MessageKey, type Translate } from '../shared/i18n';
 import type {
   ClipId, ClipIndex, GsiPayload, GsiStatus, HotkeyName, Locale, ScreenId, Settings,
 } from '../shared/types';
@@ -30,6 +31,8 @@ export interface Actions {
   copy(text: string, label: string): void;
   captureHotkey(name: HotkeyName): void;
   clearHotkey(name: HotkeyName): void;
+  exportVoicePack(): void;
+  importVoicePack(): void;
 }
 
 export interface Ctx {
@@ -46,23 +49,24 @@ export interface Ctx {
   lastPayload: GsiPayload | null;
   /** the hotkey slot currently waiting for a key press, if any */
   capturing: HotkeyName | null;
+  t: Translate;
   actions: Actions;
 }
 
-const HOTKEY_LABELS: Record<HotkeyName, string> = {
-  mute: 'GLOBAL MUTE',
-  roshan: 'MARK ROSHAN',
-  palette: 'QUICK PALETTE',
+const HOTKEY_LABELS: Record<HotkeyName, MessageKey> = {
+  mute: 'audio.hotkeyMute',
+  roshan: 'audio.hotkeyRoshan',
+  palette: 'audio.hotkeyPalette',
 };
 
-const NAV: { id: ScreenId; label: string }[] = [
-  { id: 'live', label: '01 · LIVE MATCH' },
-  { id: 'panel', label: '02 · ROLE PANEL' },
-  { id: 'timers', label: '03 · MANUAL TIMERS' },
-  { id: 'role', label: '04 · CALL SET' },
-  { id: 'audio', label: '05 · AUDIO' },
-  { id: 'gsi', label: '06 · GSI SETUP' },
-  { id: 'idle', label: '07 · NO MATCH' },
+const NAV: { id: ScreenId; key: MessageKey }[] = [
+  { id: 'live', key: 'nav.live' },
+  { id: 'panel', key: 'nav.panel' },
+  { id: 'timers', key: 'nav.timers' },
+  { id: 'role', key: 'nav.role' },
+  { id: 'audio', key: 'nav.audio' },
+  { id: 'gsi', key: 'nav.gsi' },
+  { id: 'idle', key: 'nav.idle' },
 ];
 
 const label = (text: string): HTMLElement => h('div.label', { text });
@@ -80,28 +84,28 @@ function flipIn(clock: number): number {
 }
 
 function suppressionReason(ctx: Ctx): string | null {
-  if (ctx.flags.muted) return 'GLOBAL MUTE';
-  if (ctx.flags.paused) return 'GAME PAUSED';
-  if (ctx.flags.dead) return 'PLAYER DEAD';
-  if (ctx.flags.fight) return 'TEAMFIGHT — P5 ONLY';
+  if (ctx.flags.muted) return ctx.t('live.silentMute');
+  if (ctx.flags.paused) return ctx.t('live.silentPaused');
+  if (ctx.flags.dead) return ctx.t('live.silentDead');
+  if (ctx.flags.fight) return ctx.t('live.silentFight');
   return null;
 }
 
 // ── sidebar ───────────────────────────────────────────────────────────────
 
 export function renderSidebar(root: HTMLElement, ctx: Ctx): void {
-  const { settings, actions } = ctx;
+  const { settings, actions, t } = ctx;
   const connected = ctx.gsi?.listening && ctx.match.connected;
 
   mount(
     root,
-    h('div.sidebar__head', { text: 'SCREENS' }),
+    h('div.sidebar__head', { text: t('nav.screens') }),
     h(
       'div.nav',
       {},
       NAV.map((item) =>
         h('div.nav__item', {
-          text: item.label,
+          text: t(item.key),
           class: settings.screen === item.id ? 'nav__item--active' : '',
           onClick: () => actions.setScreen(item.id),
         }),
@@ -110,27 +114,29 @@ export function renderSidebar(root: HTMLElement, ctx: Ctx): void {
     h(
       'div.sim',
       {},
-      label('SIMULATION'),
+      label(t('sidebar.simulation')),
       h(
         'div.sim__row',
         {},
         h('button.btn', {
-          text: ctx.sim.active && ctx.sim.playing ? 'PAUSE' : 'PLAY',
+          text: t(ctx.sim.active && ctx.sim.playing ? 'sidebar.pause' : 'sidebar.play'),
           class: ctx.sim.active ? 'btn--on' : '',
           onClick: () => actions.toggleSim(),
         }),
-        h('button.btn', { text: '+30s', onClick: () => actions.simSkip(30) }),
+        h('button.btn', { text: t('sidebar.skip'), onClick: () => actions.simSkip(30) }),
       ),
       h('button.btn', {
-        text: settings.muted ? 'MUTED — F9' : 'AUDIO ON — F9',
+        text: settings.muted
+          ? t('sidebar.muted', { key: settings.hotkeys.mute ?? '—' })
+          : t('sidebar.audioOn', { key: settings.hotkeys.mute ?? '—' }),
         class: settings.muted ? 'btn--alert' : '',
         onClick: () => actions.toggleMute(),
       }),
       h('div.hint', {
         html: [
-          `GLOBAL TOGGLE · ${settings.hotkeys.mute ?? '—'}`,
-          `ROSHAN · ${settings.hotkeys.roshan ?? '—'}`,
-          `PALETTE · ${settings.hotkeys.palette ?? '—'}`,
+          t('sidebar.globalToggle', { key: settings.hotkeys.mute ?? '—' }),
+          t('sidebar.roshan', { key: settings.hotkeys.roshan ?? '—' }),
+          t('sidebar.palette', { key: settings.hotkeys.palette ?? '—' }),
         ].join('<br />'),
       }),
     ),
@@ -141,7 +147,7 @@ export function renderSidebar(root: HTMLElement, ctx: Ctx): void {
       h('br'),
       h('span', {
         class: connected ? 'dot' : 'dot--off',
-        text: connected ? '● CONNECTED' : ctx.gsi?.listening ? '● WAITING FOR DOTA' : '● OFFLINE',
+        text: t(connected ? 'sidebar.connected' : ctx.gsi?.listening ? 'sidebar.waiting' : 'sidebar.offline'),
       }),
     ),
   );
@@ -150,7 +156,7 @@ export function renderSidebar(root: HTMLElement, ctx: Ctx): void {
 // ── 01 live ───────────────────────────────────────────────────────────────
 
 function liveScreen(ctx: Ctx): HTMLElement {
-  const { actions, engine, flags, clock } = ctx;
+  const { actions, engine, flags, clock, t } = ctx;
   const queue = engine.queue(clock, flags, 5);
   const next = queue[0];
   const suppressed = suppressionReason(ctx);
@@ -162,20 +168,22 @@ function liveScreen(ctx: Ctx): HTMLElement {
     h(
       'div.topbar',
       {},
-      h('div.topbar__cell.topbar__cell--strong', { text: `ROLE · ${ctx.settings.role}` }),
-      h('div.topbar__cell', { text: `MODE · ${ctx.settings.verbose ? 'VERBOSE' : 'DRY'}` }),
+      h('div.topbar__cell.topbar__cell--strong', { text: t('live.role', { role: ctx.settings.role }) }),
+      h('div.topbar__cell', {
+        text: t('live.mode', { mode: t(ctx.settings.verbose ? 'live.verbose' : 'live.dry') }),
+      }),
       h('div.topbar__cell.topbar__spacer', {}),
       h('button.toggle', {
-        text: 'DEAD',
+        text: t('live.dead'),
         class: flags.dead ? 'toggle--on' : '',
         onClick: () => actions.toggleDead(),
       }),
       h('button.toggle', {
-        text: 'FIGHT',
+        text: t('live.fight'),
         class: flags.fight ? 'toggle--on' : '',
         onClick: () => actions.toggleFight(),
       }),
-      h('div.toggle', { text: 'PAUSED', class: flags.paused ? 'toggle--on' : '' }),
+      h('div.toggle', { text: t('live.paused'), class: flags.paused ? 'toggle--on' : '' }),
     ),
 
     h(
@@ -184,15 +192,15 @@ function liveScreen(ctx: Ctx): HTMLElement {
       h(
         'div.pad',
         {},
-        label('CLOCK'),
+        label(t('live.clock')),
         h('div.clock', { text: mmss(clock) }),
         h(
           'div.daynight',
           {},
-          h('div.tag', { text: isNight(ctx) ? 'NIGHT' : 'DAY' }),
-          h('div.muted-note', { text: `FLIP IN ${mmss(flipIn(clock))}` }),
+          h('div.tag', { text: t(isNight(ctx) ? 'live.night' : 'live.day') }),
+          h('div.muted-note', { text: t('live.flipIn', { time: mmss(flipIn(clock)) }) }),
           ctx.match.inMatch && !ctx.match.alive
-            ? h('div.muted-note', { text: `RESPAWN ${mmss(ctx.match.respawnSeconds)}` })
+            ? h('div.muted-note', { text: t('live.respawn', { time: mmss(ctx.match.respawnSeconds) }) })
             : null,
         ),
       ),
@@ -202,18 +210,22 @@ function liveScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('NEXT CALL'),
+          label(t('live.nextCall')),
           h('div.next__label', { text: next ? next.label : '—' }),
           h('div.next__meta', {
             text: next
-              ? `SPEAKS IN ${mmss(next.inSeconds)} · AT ${mmss(next.fireAt)} · P${next.priority}`
-              : 'NOTHING SCHEDULED',
+              ? t('live.speaksIn', {
+                  in: mmss(next.inSeconds),
+                  at: mmss(next.fireAt),
+                  priority: next.priority,
+                })
+              : t('live.nothingScheduled'),
           }),
         ),
         ctx.speaking && !suppressed
           ? h('div.speaking', { text: `▶ ${ctx.speaking.text}` })
           : null,
-        suppressed ? h('div.silent', { text: `SILENT — ${suppressed}` }) : null,
+        suppressed ? h('div.silent', { text: t('live.silent', { reason: suppressed }) }) : null,
       ),
     ),
 
@@ -223,7 +235,7 @@ function liveScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
-        panelHead('QUEUE · SORTED BY FIRE TIME'),
+        panelHead(t('live.queue')),
         queue.length
           ? queue.map((item) =>
               h(
@@ -235,11 +247,11 @@ function liveScreen(ctx: Ctx): HTMLElement {
                 h('div.row__time', { text: mmss(item.inSeconds) }),
               ),
             )
-          : h('div.empty', { text: 'NOTHING IN RANGE FOR THIS ROLE' }),
+          : h('div.empty', { text: t('live.nothingInRange') }),
         h(
           'div.budget',
           {},
-          h('div', { class: 'label', text: 'BUDGET' }),
+          h('div', { class: 'label', text: t('live.budget') }),
           h(
             'div.budget__bar',
             {},
@@ -253,7 +265,7 @@ function liveScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
-        panelHead('LOG'),
+        panelHead(t('live.log')),
         engine.getLog().length
           ? engine.getLog().slice(0, 8).map((entry) =>
               h(
@@ -263,11 +275,11 @@ function liveScreen(ctx: Ctx): HTMLElement {
                 h('div.row__label', { style: 'font-size:13px', text: entry.label }),
                 h('div.state', {
                   class: entry.state === 'SPOKEN' ? 'state--spoken' : '',
-                  text: entry.state,
+                  text: t(`log.${entry.state}`),
                 }),
               ),
             )
-          : h('div.empty', { text: 'NO CALLS YET' }),
+          : h('div.empty', { text: t('live.noCalls') }),
       ),
     ),
   );
@@ -276,35 +288,37 @@ function liveScreen(ctx: Ctx): HTMLElement {
 // ── 02 role panel ─────────────────────────────────────────────────────────
 
 function panelScreen(ctx: Ctx): HTMLElement {
-  const { match, settings, clock } = ctx;
+  const { match, settings, clock, t } = ctx;
   const phase = phaseFor(Math.max(0, clock));
-  const locale = settings.locale;
+  const locale = settings.voiceLocale;
   const next = ctx.engine.queue(clock, ctx.flags, 1)[0];
 
   const discipline: { text: string; bad: boolean }[] = [];
   if (match.inMatch) {
     discipline.push({
       text: match.lastSentryPlacedAt === null
-        ? 'NO SENTRY PLACED THIS MATCH'
-        : `LAST SENTRY PLACED AT ${mmss(match.lastSentryPlacedAt)}`,
+        ? t('panel.noSentryYet')
+        : t('panel.lastSentry', { time: mmss(match.lastSentryPlacedAt) }),
       bad: match.lastSentryPlacedAt === null || clock - match.lastSentryPlacedAt > 180,
     });
     discipline.push({
-      text: match.smokes ? `SMOKE AVAILABLE · ${match.smokes} IN BAG` : 'NO SMOKE IN BAG',
+      text: match.smokes ? t('panel.smoke', { count: match.smokes }) : t('panel.noSmoke'),
       bad: !match.smokes,
     });
     discipline.push({
-      text: `${match.observers} OBSERVER${match.observers === 1 ? '' : 'S'} CARRIED`,
+      text: t(match.observers === 1 ? 'panel.observerOne' : 'panel.observerMany', {
+        count: match.observers,
+      }),
       bad: match.observers === 0,
     });
     discipline.push({
-      text: match.hasTp ? 'TP IN INVENTORY · OK' : 'NO TP IN INVENTORY',
+      text: t(match.hasTp ? 'panel.tpOk' : 'panel.noTp'),
       bad: !match.hasTp,
     });
     discipline.push({
       text: match.buybackCost > 0 && match.gold < match.buybackCost
-        ? `NO BUYBACK · ${match.gold}/${match.buybackCost}`
-        : `BUYBACK OK · ${match.gold}/${match.buybackCost || '—'}`,
+        ? t('panel.noBuyback', { gold: match.gold, cost: match.buybackCost })
+        : t('panel.buybackOk', { gold: match.gold, cost: match.buybackCost || '—' }),
       bad: match.buybackCost > 0 && match.gold < match.buybackCost,
     });
   }
@@ -315,15 +329,15 @@ function panelScreen(ctx: Ctx): HTMLElement {
     h(
       'div.screen__head',
       {},
-      h('div.screen__title', { text: 'ROLE PANEL' }),
-      h('div.screen__sub', { text: 'NEVER SPOKEN · READ AT A GLANCE' }),
+      h('div.screen__title', { text: t('panel.title') }),
+      h('div.screen__sub', { text: t('panel.sub') }),
     ),
     h(
       'div.topbar',
       {},
       PHASES.map((p) =>
         h('div.topbar__cell', {
-          text: p.label,
+          text: t(p.labelKey),
           style: 'flex:1',
           class: p.id === phase ? 'topbar__cell--strong' : '',
           ...(p.id === phase ? { } : {}),
@@ -336,7 +350,7 @@ function panelScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
-        panelHead('DISCIPLINE'),
+        panelHead(t('panel.discipline')),
         discipline.length
           ? discipline.map((item) =>
               h('div.row', {}, h('div.row__label', {
@@ -344,12 +358,12 @@ function panelScreen(ctx: Ctx): HTMLElement {
                 style: item.bad ? 'color:var(--alert)' : '',
               })),
             )
-          : h('div.empty', { text: 'WAITING FOR A MATCH — ITEM STATE COMES FROM GSI' }),
+          : h('div.empty', { text: t('panel.waitingMatch') }),
       ),
       h(
         'div',
         {},
-        panelHead(`PHASE FOCUS · ${settings.role}`),
+        panelHead(t('panel.phaseFocus', { role: settings.role })),
         h('div', {
           style: 'padding:18px;font-size:16px;line-height:1.5;text-wrap:pretty',
           text: PHASE_FOCUS[settings.role][phase][locale],
@@ -357,7 +371,7 @@ function panelScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           { style: 'border-top:2px solid var(--ink);padding:18px;display:flex;flex-direction:column;gap:10px' },
-          label('NEXT WINDOW CLOSES'),
+          label(t('panel.nextWindow')),
           h('div', {
             style: "font-family:var(--display);font-size:38px;line-height:1",
             text: next ? `${next.label} · ${mmss(next.fireAt + 0)}` : '—',
@@ -371,7 +385,7 @@ function panelScreen(ctx: Ctx): HTMLElement {
 // ── 03 manual timers ──────────────────────────────────────────────────────
 
 function timersScreen(ctx: Ctx): HTMLElement {
-  const { engine, actions, clock, settings } = ctx;
+  const { engine, actions, clock, settings, t } = ctx;
   const mark = engine.getRoshanMark();
   const roshan = engine.getTimers().filter((t) => t.source === 'roshan');
   const manual = engine.getTimers().filter((t) => t.source === 'palette');
@@ -382,8 +396,8 @@ function timersScreen(ctx: Ctx): HTMLElement {
     h(
       'div.screen__head',
       {},
-      h('div.screen__title', { text: 'MANUAL TIMERS' }),
-      h('div.screen__sub', { text: 'HOTKEYS LISTEN ONLY · NO INPUT SENT TO DOTA' }),
+      h('div.screen__title', { text: t('timers.title') }),
+      h('div.screen__sub', { text: t('timers.sub') }),
     ),
     h(
       'div.grid2.grid2--rule.fill',
@@ -391,19 +405,19 @@ function timersScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
-        panelHead('ROSHAN CHAIN'),
+        panelHead(t('timers.roshanChain')),
         h(
           'div',
           { style: 'padding:20px 18px' },
           h('button.btn', {
             style: 'width:100%;border-width:4px;padding:16px;font-family:var(--display);font-size:24px',
             class: mark === null ? '' : 'btn--on',
-            text: mark === null ? 'START ROSHAN' : `KILLED ${mmss(mark)}`,
+            text: mark === null ? t('timers.start') : t('timers.killed', { time: mmss(mark) }),
             onClick: () => actions.markRoshan(),
           }),
           h('div.hint', {
             style: 'margin-top:8px;text-align:center',
-            text: `${settings.hotkeys.roshan ?? '—'} · REMAP EM 05 · AUDIO`,
+            text: t('timers.remap', { key: settings.hotkeys.roshan ?? '—' }),
           }),
           h(
             'div',
@@ -418,31 +432,31 @@ function timersScreen(ctx: Ctx): HTMLElement {
                     h('div.row__time', { text: mmss(timer.endsAt - clock) }),
                   ),
                 )
-              : h('div.empty', { style: 'padding-left:0', text: 'NO ROSHAN MARKED' }),
+              : h('div.empty', { style: 'padding-left:0', text: t('timers.noRoshan') }),
           ),
         ),
       ),
       h(
         'div',
         {},
-        panelHead(`QUICK PALETTE · ${settings.hotkeys.palette ?? '—'}`),
+        panelHead(t('timers.palette', { key: settings.hotkeys.palette ?? '—' })),
         h(
           'div',
           { style: 'padding:20px 18px' },
           h(
             'div.palette',
             { style: 'width:auto' },
-            h('div.palette__hint', { text: 'TYPE TWO LETTERS · AUTO-DISMISS 2s' }),
+            h('div.palette__hint', { text: t('timers.paletteHint') }),
             PALETTE.map((entry) =>
               h(
                 'div.palette__row',
                 {},
                 h('div.palette__code', { text: entry.code }),
-                h('div.palette__label', { text: entry.label[settings.locale] }),
+                h('div.palette__label', { text: entry.label[settings.voiceLocale] }),
               ),
             ),
           ),
-          h('div.label', { style: 'margin-top:20px;margin-bottom:10px', text: 'ACTIVE' }),
+          h('div.label', { style: 'margin-top:20px;margin-bottom:10px', text: t('timers.active') }),
           manual.length
             ? manual.map((timer) =>
                 h(
@@ -456,12 +470,12 @@ function timersScreen(ctx: Ctx): HTMLElement {
                   }),
                 ),
               )
-            : h('div.empty', { style: 'padding-left:0', text: 'NO MANUAL TIMER RUNNING' }),
+            : h('div.empty', { style: 'padding-left:0', text: t('timers.noManual') }),
           ctx.match.inMatch && !ctx.match.alive
             ? h(
                 'div.row',
                 { style: 'padding-left:0;padding-right:0' },
-                h('div.row__label', { text: 'MY RESPAWN' }),
+                h('div.row__label', { text: t('timers.myRespawn') }),
                 h('div.row__time', { text: mmss(ctx.match.respawnSeconds) }),
               )
             : null,
@@ -474,7 +488,7 @@ function timersScreen(ctx: Ctx): HTMLElement {
 // ── 04 call set ───────────────────────────────────────────────────────────
 
 function roleScreen(ctx: Ctx): HTMLElement {
-  const { settings, actions } = ctx;
+  const { settings, actions, t } = ctx;
   const inSet = EVENTS.filter((e) => eventAppliesToRole(e.roles, settings.role));
   const outOfSet = EVENTS.filter((e) => !eventAppliesToRole(e.roles, settings.role));
 
@@ -484,8 +498,8 @@ function roleScreen(ctx: Ctx): HTMLElement {
     h(
       'div.screen__head',
       {},
-      h('div.screen__title', { text: 'CALL SET' }),
-      h('div.screen__sub', { text: 'PICK A ROLE · GET A CURATED SET' }),
+      h('div.screen__title', { text: t('role.title') }),
+      h('div.screen__sub', { text: t('role.sub') }),
     ),
     h(
       'div.topbar',
@@ -502,7 +516,7 @@ function roleScreen(ctx: Ctx): HTMLElement {
           h('div', { style: 'font-family:var(--display);font-size:26px;line-height:1', text: role.id }),
           h('div', {
             style: 'font-size:10px;letter-spacing:0.14em;margin-top:6px',
-            text: role.name[settings.locale],
+            text: role.name[settings.voiceLocale],
           }),
         ),
       ),
@@ -513,8 +527,23 @@ function roleScreen(ctx: Ctx): HTMLElement {
       h(
         'div',
         {},
-        panelHead(`IN THE SET · ${settings.role}`),
-        inSet.map((event) => {
+        panelHead(t('role.inSet', { role: settings.role })),
+        // Scheduled events first, then the ones raised by reading the live
+        // state — those have no clock window, but must be silenceable too.
+        [
+          ...inSet.map((event) => ({
+            id: event.id,
+            label: event.label,
+            when: event.kind === 'absolute'
+              ? t('role.at', { time: mmss(event.at) })
+              : `${mmss(event.window[0])}–${mmss(event.window[1])}`,
+          })),
+          ...Object.values(STATE_CALLS).map((call) => ({
+            id: call.id,
+            label: call.label,
+            when: t('role.fromState'),
+          })),
+        ].map((event) => {
           const muted = settings.mutedEvents.includes(event.id);
           return h(
             'div.row.row--center',
@@ -530,18 +559,14 @@ function roleScreen(ctx: Ctx): HTMLElement {
                 }),
             }),
             h('div.row__label', { text: event.label }),
-            h('div.row__meta', {
-              text: event.kind === 'absolute'
-                ? `AT ${mmss(event.at)}`
-                : `${mmss(event.window[0])}–${mmss(event.window[1])}`,
-            }),
+            h('div.row__meta', { text: event.when }),
           );
         }),
       ),
       h(
         'div',
         {},
-        panelHead('MUTED FOR THIS ROLE'),
+        panelHead(t('role.muted')),
         outOfSet.length
           ? outOfSet.map((event) =>
               h(
@@ -551,10 +576,8 @@ function roleScreen(ctx: Ctx): HTMLElement {
                 h('div.row__label', { text: event.label }),
               ),
             )
-          : h('div.empty', { text: 'THIS ROLE HEARS EVERYTHING' }),
-        h('div.note', {
-          text: 'Clique no quadrado à esquerda para silenciar um evento individual. O conjunto por função já cobre o normal — ninguém configura trinta caixas no meio da fila.',
-        }),
+          : h('div.empty', { text: t('role.hearsEverything') }),
+        h('div.note', { text: t('role.note') }),
       ),
     ),
   );
@@ -570,7 +593,7 @@ function clipRow(ctx: Ctx, clip: { id: ClipId }, locale: Locale): HTMLElement {
   return h(
     'div.clip',
     {},
-    h('button.icon', { text: '▶', title: 'Ouvir', onClick: () => ctx.actions.previewClip(clip.id) }),
+    h('button.icon', { text: '▶', title: ctx.t('audio.listen'), onClick: () => ctx.actions.previewClip(clip.id) }),
     h(
       'div.clip__id',
       {},
@@ -578,18 +601,18 @@ function clipRow(ctx: Ctx, clip: { id: ClipId }, locale: Locale): HTMLElement {
       h('div.clip__text', { text: spoken ?? '' }),
     ),
     h('div.clip__len', {
-      text: meta ? (meta.durationMs ? `${(meta.durationMs / 1000).toFixed(1)}s` : 'ok') : 'TTS',
+      text: meta ? (meta.durationMs ? `${(meta.durationMs / 1000).toFixed(1)}s` : 'ok') : ctx.t('audio.tts'),
       style: meta ? '' : 'color:var(--grey)',
     }),
     h('button.icon.icon--rec', {
       text: '●',
-      title: meta ? 'Regravar' : 'Gravar',
+      title: ctx.t(meta ? 'audio.rerecord' : 'audio.record'),
       onClick: () => ctx.actions.recordClip(clip.id),
     }),
     meta
       ? h('button.icon.icon--ghost', {
           text: '✕',
-          title: 'Apagar gravação',
+          title: ctx.t('audio.deleteClip'),
           onClick: () => ctx.actions.deleteClip(clip.id),
         })
       : null,
@@ -597,7 +620,7 @@ function clipRow(ctx: Ctx, clip: { id: ClipId }, locale: Locale): HTMLElement {
 }
 
 function audioScreen(ctx: Ctx): HTMLElement {
-  const { settings, actions } = ctx;
+  const { settings, actions, t } = ctx;
   const volumeCells = 16;
   const filled = Math.round(settings.volume * volumeCells);
   const recorded = CLIPS.filter((c) => ctx.clips[c.id]).length;
@@ -608,10 +631,8 @@ function audioScreen(ctx: Ctx): HTMLElement {
     h(
       'div.screen__head',
       {},
-      h('div.screen__title', { text: 'AUDIO' }),
-      h('div.screen__sub', {
-        text: `${recorded}/${CLIPS.length} GRAVADOS · O RESTO SAI NA VOZ DO WINDOWS`,
-      }),
+      h('div.screen__title', { text: t('audio.title') }),
+      h('div.screen__sub', { text: t('audio.recorded', { done: recorded, total: CLIPS.length }) }),
     ),
     h(
       'div.grid2.grid2--rule.fill',
@@ -622,7 +643,7 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('CALL VOLUME'),
+          label(t('audio.volume')),
           h(
             'div.meter',
             {},
@@ -642,19 +663,19 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('VERBOSITY'),
+          label(t('audio.verbosity')),
           h(
             'div.choices',
             {},
             h('button.choice', {
               style: 'flex:1',
-              text: 'DRY · "STACK"',
+              text: t('audio.dry'),
               class: settings.verbose ? '' : 'choice--on',
               onClick: () => actions.patch({ verbose: false }),
             }),
             h('button.choice', {
               style: 'flex:1',
-              text: 'VERBOSE · "STACK EM 5"',
+              text: t('audio.verbose'),
               class: settings.verbose ? 'choice--on' : '',
               onClick: () => actions.patch({ verbose: true }),
             }),
@@ -663,7 +684,7 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('CALL BUDGET · PER MINUTE'),
+          label(t('audio.budget')),
           h(
             'div.choices',
             {},
@@ -679,19 +700,19 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('LOCALE'),
+          label(t('audio.voiceLocale')),
           h(
             'div.choices',
             {},
             (['pt-BR', 'en'] as Locale[]).map((locale) =>
               h('button.choice', {
                 text: locale.toUpperCase(),
-                class: settings.locale === locale ? 'choice--on' : '',
-                onClick: () => actions.patch({ locale }),
+                class: settings.voiceLocale === locale ? 'choice--on' : '',
+                onClick: () => actions.patch({ voiceLocale: locale }),
               }),
             ),
             h('button.choice', {
-              text: settings.ttsFallback ? 'TTS FALLBACK · ON' : 'TTS FALLBACK · OFF',
+              text: t(settings.ttsFallback ? 'audio.ttsOn' : 'audio.ttsOff'),
               class: settings.ttsFallback ? 'choice--on' : '',
               onClick: () => actions.patch({ ttsFallback: !settings.ttsFallback }),
             }),
@@ -700,14 +721,62 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('OUTPUT DEVICE'),
+          label(t('audio.uiLanguage')),
+          h(
+            'div.choices',
+            {},
+            UI_LANGUAGES.map((language) =>
+              h('button.choice', {
+                text: language.toUpperCase(),
+                class: settings.uiLanguage === language ? 'choice--on' : '',
+                onClick: () => actions.patch({ uiLanguage: language }),
+              }),
+            ),
+          ),
+        ),
+        h(
+          'div',
+          {},
+          label(t('overlay.title')),
+          h('div.hint', { style: 'margin-bottom:8px', text: t('overlay.hint') }),
+          h(
+            'div.choices',
+            {},
+            h('button.choice', {
+              text: t(settings.overlayEnabled ? 'overlay.on' : 'overlay.off'),
+              class: settings.overlayEnabled ? 'choice--on' : '',
+              onClick: () => actions.patch({ overlayEnabled: !settings.overlayEnabled }),
+            }),
+            h('button.choice', {
+              text: t(settings.startWithWindows ? 'startup.on' : 'startup.off'),
+              class: settings.startWithWindows ? 'choice--on' : '',
+              onClick: () => actions.patch({ startWithWindows: !settings.startWithWindows }),
+            }),
+          ),
+        ),
+        h(
+          'div',
+          {},
+          label(t('voicepack.title')),
+          h('div.hint', { style: 'margin-bottom:8px', text: t('voicepack.hint') }),
+          h(
+            'div.choices',
+            {},
+            h('button.choice', { text: t('voicepack.export'), onClick: () => actions.exportVoicePack() }),
+            h('button.choice', { text: t('voicepack.import'), onClick: () => actions.importVoicePack() }),
+          ),
+        ),
+        h(
+          'div',
+          {},
+          label(t('audio.output')),
           h(
             'select.select',
             {
               onChange: (event) =>
                 actions.patch({ outputDeviceId: (event.target as HTMLSelectElement).value }),
             },
-            h('option', { attrs: { value: 'default' }, text: 'Padrão do Windows' }),
+            h('option', { attrs: { value: 'default' }, text: t('audio.systemDefault') }),
             ctx.devices.outputs.map((device) =>
               h('option', {
                 attrs: { value: device.deviceId, selected: settings.outputDeviceId === device.deviceId },
@@ -719,26 +788,23 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('GLOBAL HOTKEYS'),
-          h('div.hint', {
-            style: 'margin-bottom:8px',
-            text: 'Funcionam com o Dota em foco. O app só escuta — nada é enviado ao jogo.',
-          }),
+          label(t('audio.hotkeys')),
+          h('div.hint', { style: 'margin-bottom:8px', text: t('audio.hotkeysHint') }),
           (Object.keys(HOTKEY_LABELS) as HotkeyName[]).map((name) =>
             h(
               'div.row.row--center',
               { style: 'padding-left:0;padding-right:0' },
-              h('div.row__label', { text: HOTKEY_LABELS[name] }),
+              h('div.row__label', { text: t(HOTKEY_LABELS[name]) }),
               h('button.choice', {
                 text: ctx.capturing === name
-                  ? 'PRESSIONE UMA TECLA'
-                  : (settings.hotkeys[name] ?? 'NENHUMA'),
+                  ? t('audio.pressKey')
+                  : (settings.hotkeys[name] ?? t('audio.noHotkey')),
                 class: ctx.capturing === name ? 'choice--on' : '',
                 onClick: () => actions.captureHotkey(name),
               }),
               h('button.icon.icon--ghost', {
                 text: '✕',
-                title: 'Remover atalho',
+                title: t('audio.removeHotkey'),
                 onClick: () => actions.clearHotkey(name),
               }),
             ),
@@ -747,14 +813,14 @@ function audioScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           {},
-          label('MICROPHONE'),
+          label(t('audio.microphone')),
           h(
             'select.select',
             {
               onChange: (event) =>
                 actions.patch({ inputDeviceId: (event.target as HTMLSelectElement).value }),
             },
-            h('option', { attrs: { value: 'default' }, text: 'Padrão do Windows' }),
+            h('option', { attrs: { value: 'default' }, text: t('audio.systemDefault') }),
             ctx.devices.inputs.map((device) =>
               h('option', {
                 attrs: { value: device.deviceId, selected: settings.inputDeviceId === device.deviceId },
@@ -768,11 +834,14 @@ function audioScreen(ctx: Ctx): HTMLElement {
         'div',
         {},
         panelHead(
-          `CLIP LIBRARY · ${settings.locale}`,
-          h('button.btn.btn--tight', { text: 'GRAVAR FALTANTES', onClick: () => actions.recordMissing() }),
-          h('button.btn.btn--tight', { text: 'PASTA', onClick: () => actions.revealClips() }),
+          t('audio.library', { locale: settings.voiceLocale }),
+          h('button.btn.btn--tight', {
+            text: t('audio.recordMissing'),
+            onClick: () => actions.recordMissing(),
+          }),
+          h('button.btn.btn--tight', { text: t('audio.folder'), onClick: () => actions.revealClips() }),
         ),
-        CLIPS.map((clip) => clipRow(ctx, clip, settings.locale)),
+        CLIPS.map((clip) => clipRow(ctx, clip, settings.voiceLocale)),
       ),
     ),
   );
@@ -781,17 +850,17 @@ function audioScreen(ctx: Ctx): HTMLElement {
 // ── 06 gsi ────────────────────────────────────────────────────────────────
 
 function gsiScreen(ctx: Ctx): HTMLElement {
-  const { gsi, actions } = ctx;
+  const { gsi, actions, t } = ctx;
   const connected = !!gsi?.lastPayloadAt && Date.now() - gsi.lastPayloadAt < 10_000;
   const since = gsi?.lastPayloadAt ? ((Date.now() - gsi.lastPayloadAt) / 1000).toFixed(1) : '—';
 
   const diagnostics: [string, string][] = [
-    ['LISTEN ADDRESS', `${gsi?.host ?? '127.0.0.1'}:${gsi?.port ?? 3000}`],
-    ['AUTH TOKEN', gsi?.token ? `${gsi.token.slice(0, 4)}…${gsi.token.slice(-4)}` : '—'],
-    ['PAYLOADS RECEIVED', String(gsi?.payloads ?? 0)],
-    ['REJECTED', String(gsi?.rejected ?? 0)],
-    ['AVG RESPONSE', gsi?.avgMs ? `${gsi.avgMs.toFixed(1)} ms` : '—'],
-    ['RECONNECTS', String(gsi?.reconnects ?? 0)],
+    [t('gsi.listenAddress'), `${gsi?.host ?? '127.0.0.1'}:${gsi?.port ?? 3000}`],
+    [t('gsi.authToken'), gsi?.token ? `${gsi.token.slice(0, 4)}…${gsi.token.slice(-4)}` : '—'],
+    [t('gsi.payloads'), String(gsi?.payloads ?? 0)],
+    [t('gsi.rejected'), String(gsi?.rejected ?? 0)],
+    [t('gsi.avgResponse'), gsi?.avgMs ? `${gsi.avgMs.toFixed(1)} ms` : '—'],
+    [t('gsi.reconnects'), String(gsi?.reconnects ?? 0)],
   ];
 
   return h(
@@ -800,8 +869,8 @@ function gsiScreen(ctx: Ctx): HTMLElement {
     h(
       'div.screen__head',
       {},
-      h('div.screen__title', { text: 'GSI SETUP' }),
-      h('div.screen__sub', { text: 'OFFICIAL VALVE INTEGRATION' }),
+      h('div.screen__title', { text: t('gsi.title') }),
+      h('div.screen__sub', { text: t('gsi.sub') }),
     ),
     h(
       'div.grid2.grid2--rule.fill',
@@ -813,9 +882,15 @@ function gsiScreen(ctx: Ctx): HTMLElement {
           'div.status',
           {},
           h('div', { class: connected ? 'status__lamp' : 'status__lamp status__lamp--off' }),
-          h('div.status__title', { text: connected ? 'CONNECTED' : gsi?.listening ? 'WAITING' : 'OFFLINE' }),
+          h('div.status__title', {
+            text: t(connected ? 'gsi.connected' : gsi?.listening ? 'gsi.waiting' : 'gsi.offline'),
+          }),
           h('div', { style: 'flex:1' }),
-          h('div.row__meta', { text: connected ? `LAST PAYLOAD ${since}s AGO` : (gsi?.error ?? 'NO PAYLOAD YET') }),
+          h('div.row__meta', {
+            text: connected
+              ? t('gsi.lastPayloadAgo', { seconds: since })
+              : (gsi?.error ?? t('gsi.noPayloadYet')),
+          }),
         ),
         h(
           'div',
@@ -825,55 +900,53 @@ function gsiScreen(ctx: Ctx): HTMLElement {
             {},
             h('div.label', {
               style: 'margin-bottom:8px',
-              text: gsi?.cfgInstalled ? 'STEP 1 · CONFIG WRITTEN' : 'STEP 1 · CONFIG MISSING',
+              text: t(gsi?.cfgInstalled ? 'gsi.step1Written' : 'gsi.step1Missing'),
             }),
             h('div.path', {
               text: gsi?.cfgDir
                 ? `${gsi.cfgDir}\\gamestate_integration_callassistant.cfg`
-                : 'Pasta do Dota 2 não encontrada automaticamente.',
+                : t('gsi.notFound'),
             }),
             h(
               'div.choices',
               { style: 'margin-top:8px' },
               h('button.btn.btn--tight', {
-                text: gsi?.cfgInstalled ? 'REWRITE' : 'WRITE CONFIG',
+                text: t(gsi?.cfgInstalled ? 'gsi.rewrite' : 'gsi.writeConfig'),
                 onClick: () => actions.installGsi(),
               }),
-              h('button.btn.btn--tight', { text: 'CHOOSE FOLDER', onClick: () => actions.chooseFolder() }),
+              h('button.btn.btn--tight', { text: t('gsi.chooseFolder'), onClick: () => actions.chooseFolder() }),
             ),
           ),
           h(
             'div',
             {},
-            h('div.label', { style: 'margin-bottom:8px', text: 'STEP 2 · YOU MUST DO THIS ONE' }),
+            h('div.label', { style: 'margin-bottom:8px', text: t('gsi.step2') }),
             h('div', {
               style: 'font-size:13px;line-height:1.5;margin-bottom:8px;text-wrap:pretty',
-              text: 'Adicione isto nas opções de inicialização do Dota 2 no Steam. O app não pode fazer isso por você.',
+              text: t('gsi.step2Body'),
             }),
             h(
               'div.launch',
               {},
               h('div.launch__value', { text: '-gamestateintegration' }),
               h('button.launch__copy', {
-                text: 'COPY',
-                onClick: () => actions.copy('-gamestateintegration', 'launch option'),
+                text: t('gsi.copy'),
+                onClick: () => actions.copy('-gamestateintegration', t('toast.launchOption')),
               }),
             ),
           ),
           h(
             'div',
             {},
-            h('div.label', { style: 'margin-bottom:8px', text: 'STEP 3 · RESTART DOTA' }),
-            h('div.hint', {
-              text: 'O Dota lê os arquivos de GSI só na inicialização. Se o app já estava aberto, feche e abra o jogo de novo.',
-            }),
+            h('div.label', { style: 'margin-bottom:8px', text: t('gsi.step3') }),
+            h('div.hint', { text: t('gsi.step3Body') }),
           ),
         ),
       ),
       h(
         'div',
         {},
-        panelHead('DIAGNOSTICS'),
+        panelHead(t('gsi.diagnostics')),
         diagnostics.map(([key, value]) =>
           h(
             'div.row',
@@ -885,7 +958,7 @@ function gsiScreen(ctx: Ctx): HTMLElement {
         h(
           'div',
           { style: 'padding:18px' },
-          h('div.label', { style: 'margin-bottom:8px', text: 'LAST PAYLOAD' }),
+          h('div.label', { style: 'margin-bottom:8px', text: t('gsi.lastPayload') }),
           h('div.payload', {
             text: ctx.lastPayload
               ? JSON.stringify(
@@ -893,7 +966,7 @@ function gsiScreen(ctx: Ctx): HTMLElement {
                   null,
                   2,
                 )
-              : 'nada recebido ainda',
+              : t('gsi.nothingYet'),
           }),
         ),
       ),
@@ -904,35 +977,36 @@ function gsiScreen(ctx: Ctx): HTMLElement {
 // ── 07 idle ───────────────────────────────────────────────────────────────
 
 function idleScreen(ctx: Ctx): HTMLElement {
-  const { gsi, settings } = ctx;
+  const { gsi, settings, t } = ctx;
   return h(
     'div.idle',
     {},
     h(
       'div.idle__body',
       {},
-      h('div.idle__title', { html: 'NO<br />MATCH' }),
+      h('div.idle__title', { html: t('idle.noMatch') }),
       h('div', {
         style: 'font-size:14px;letter-spacing:0.1em;color:var(--dark)',
-        text: `LISTENING ON ${gsi?.host ?? '127.0.0.1'}:${gsi?.port ?? 3000} · ${
-          gsi?.listening ? 'IDLE' : 'OFFLINE'
-        }`,
+        text: t('idle.listening', {
+          address: `${gsi?.host ?? '127.0.0.1'}:${gsi?.port ?? 3000}`,
+          state: t(gsi?.listening ? 'idle.idle' : 'gsi.offline'),
+        }),
       }),
       h(
         'div.choices',
         { style: 'margin-top:6px' },
-        h('div.tag', { text: `ROLE · ${settings.role}` }),
-        h('div.tag.tag--outline', { text: settings.verbose ? 'VERBOSE' : 'DRY' }),
-        h('div.tag.tag--outline', { text: `BUDGET ${settings.budget}/MIN` }),
+        h('div.tag', { text: t('live.role', { role: settings.role }) }),
+        h('div.tag.tag--outline', { text: t(settings.verbose ? 'live.verbose' : 'live.dry') }),
+        h('div.tag.tag--outline', { text: t('idle.budget', { n: settings.budget }) }),
       ),
     ),
     h(
       'div.idle__foot',
       {},
-      h('div.hint', { html: 'HOTKEYS ONLY LISTEN.<br />NO INPUT IS SENT TO DOTA.' }),
-      h('div.hint', { html: 'NO ACCOUNT. NO TELEMETRY.<br />NOTHING LEAVES THIS MACHINE.' }),
+      h('div.hint', { html: t('idle.hotkeys') }),
+      h('div.hint', { html: t('idle.privacy') }),
       h('div', { style: 'flex:1' }),
-      h('div.hint', { html: 'TIMINGS VALIDATED<br />PATCH 7.41e' }),
+      h('div.hint', { html: t('idle.patch') }),
     ),
   );
 }
