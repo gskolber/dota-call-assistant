@@ -17,6 +17,7 @@ const en = {
   'nav.gsi': '06 · GSI SETUP',
   'nav.idle': '07 · NO MATCH',
 
+  'sidebar.language': 'LANGUAGE',
   'sidebar.simulation': 'SIMULATION',
   'sidebar.play': 'PLAY',
   'sidebar.pause': 'PAUSE',
@@ -263,6 +264,7 @@ const ptBR: Record<MessageKey, string> = {
   'nav.gsi': '06 · CONFIGURAR GSI',
   'nav.idle': '07 · SEM PARTIDA',
 
+  'sidebar.language': 'IDIOMA',
   'sidebar.simulation': 'SIMULAÇÃO',
   'sidebar.play': 'RODAR',
   'sidebar.pause': 'PAUSAR',

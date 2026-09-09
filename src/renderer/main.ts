@@ -236,10 +236,37 @@ function renderTitlebar(ctx: Ctx): void {
   );
 }
 
+/**
+ * True between pointerdown and the click it produces. Rebuilding the tree in
+ * that gap detaches the element the press started on, and the browser then
+ * fires no click at all — which is why a button sometimes needed pressing
+ * twice.
+ */
+let holdRenders = false;
+let renderedClock = Number.NaN;
+
+function releaseRenders(): void {
+  holdRenders = false;
+}
+
+function watchPointer(): void {
+  document.addEventListener('pointerdown', () => { holdRenders = true; });
+  // the capture phase runs before the button's own handler, so the click has
+  // certainly been dispatched by the time we let go
+  document.addEventListener('click', releaseRenders, true);
+  document.addEventListener('pointercancel', releaseRenders);
+  // a press that ends outside the element produces no click; let go anyway
+  document.addEventListener('pointerup', () => window.setTimeout(releaseRenders, 60));
+}
+
 function render(force = false): void {
   if (!state.settings) return;
+  if (holdRenders && !force) return;
+
   const screen = settings().screen;
-  if (!force && !state.dirty && STATIC_SCREENS.has(screen)) return;
+  const clockMoved = state.clock !== renderedClock;
+  if (!force && !state.dirty && (STATIC_SCREENS.has(screen) || !clockMoved)) return;
+  renderedClock = state.clock;
 
   const ctx = context();
   renderTitlebar(ctx);
@@ -597,6 +624,7 @@ async function boot(): Promise<void> {
   });
 
   document.addEventListener('keydown', onKeyDown);
+  watchPointer();
   navigator.mediaDevices?.addEventListener('devicechange', () => void refreshDevices());
 
   // GSI goes quiet when Dota closes and nothing tells us, so watch the clock.

@@ -117,6 +117,22 @@ export function renderSidebar(root: HTMLElement, ctx: Ctx): void {
     h(
       'div.sim',
       {},
+      label(t('sidebar.language')),
+      h(
+        'div.sim__row',
+        {},
+        UI_LANGUAGES.map((language) =>
+          h('button.btn', {
+            text: language.toUpperCase(),
+            class: settings.uiLanguage === language ? 'btn--on' : '',
+            onClick: () => actions.patch({ uiLanguage: language }),
+          }),
+        ),
+      ),
+    ),
+    h(
+      'div.sim',
+      { style: 'padding-top:0' },
       label(t('sidebar.simulation')),
       h(
         'div.sim__row',
